@@ -53,10 +53,14 @@ BusinessFormPreviewDialog::BusinessFormPreviewDialog(const QJsonDocument &config
             continue;
         const QJsonObject field = it.value().toObject();
         const QString labelText = field.value(QStringLiteral("label")).toString(it.key());
+        const QString unit = field.value(QStringLiteral("unit")).toString();
+        const QString formLabel = unit.isEmpty()
+            ? labelText + QLatin1Char(':')
+            : labelText + QLatin1Char('(') + unit + QStringLiteral("):");
         QWidget *editor = createEditor(it.key(), field);
         if (editor) {
             editor->setObjectName(it.key());
-            form->addRow(labelText + QLatin1Char(':'), editor);
+            form->addRow(formLabel, editor);
         }
     }
     layout->addLayout(form, 1);
@@ -71,7 +75,6 @@ BusinessFormPreviewDialog::BusinessFormPreviewDialog(const QJsonDocument &config
 QWidget *BusinessFormPreviewDialog::createEditor(const QString &, const QJsonObject &config)
 {
     const QString widget = config.value(QStringLiteral("widget")).toString();
-    const QString unit = config.value(QStringLiteral("unit")).toString();
     const QJsonValue defaultValue = config.value(QStringLiteral("default"));
     const double minimum = configuredNumber(config, QStringLiteral("min"), 0.0);
     const double maximum = configuredNumber(config, QStringLiteral("max"), 99.0);
@@ -80,8 +83,6 @@ QWidget *BusinessFormPreviewDialog::createEditor(const QString &, const QJsonObj
         auto *spin = new QSpinBox(this);
         spin->setRange(int(minimum), int(maximum));
         spin->setValue(int(configuredNumber(config, QStringLiteral("default"), 0.0)));
-        if (!unit.isEmpty())
-            spin->setSuffix(QStringLiteral(" ") + unit);
         return spin;
     }
     if (widget == QLatin1String("doublespinbox")) {
@@ -89,8 +90,6 @@ QWidget *BusinessFormPreviewDialog::createEditor(const QString &, const QJsonObj
         spin->setDecimals(int(configuredNumber(config, QStringLiteral("decimals"), 2.0)));
         spin->setRange(minimum, maximum);
         spin->setValue(configuredNumber(config, QStringLiteral("default"), 0.0));
-        if (!unit.isEmpty())
-            spin->setSuffix(QStringLiteral(" ") + unit);
         return spin;
     }
     if (widget == QLatin1String("combobox")) {
