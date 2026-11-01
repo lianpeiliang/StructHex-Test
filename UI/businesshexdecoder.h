@@ -46,7 +46,7 @@ private:
     QWidget *m_formContent = nullptr;
     QPlainTextEdit *m_generatedHex = nullptr;
     QHash<QString, QWidget *> m_fieldWidgets;
-    QHash<QString, QJsonObject> m_fieldConfigs;
+    QJsonObject m_fieldConfigs;
     QHash<QString, FieldInfo> m_fieldInfo;
     StructInfo m_activeStructure;
     QJsonDocument m_activeConfig;
