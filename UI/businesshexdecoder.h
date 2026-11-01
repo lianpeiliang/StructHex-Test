@@ -6,6 +6,7 @@
 #include <QDialog>
 #include <QByteArray>
 #include <QHash>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -27,6 +28,12 @@ private:
     void chooseBusinessConfig();
     void chooseStructureDefinition();
     void chooseHexFile();
+    void loadSavedProfile();
+    void saveCurrentProfile();
+    void deleteSelectedProfile();
+    void readProfiles();
+    bool writeProfiles(QString &error) const;
+    void refreshProfileSelector();
     void initializeDefaultsIfReady();
     void decode();
     void clearResult(const QString &message);
@@ -40,6 +47,8 @@ private:
 
     QLineEdit *m_businessPath = nullptr;
     QLineEdit *m_structurePath = nullptr;
+    QComboBox *m_profileSelector = nullptr;
+    QLabel *m_profileStatus = nullptr;
     QPlainTextEdit *m_hexInput = nullptr;
     QComboBox *m_byteOrder = nullptr;
     QLabel *m_status = nullptr;
@@ -50,6 +59,8 @@ private:
     QHash<QString, QWidget *> m_fieldWidgets;
     QJsonObject m_fieldConfigs;
     QHash<QString, FieldInfo> m_fieldInfo;
+    QJsonArray m_profiles;
+    QString m_profileStorePath;
     StructInfo m_activeStructure;
     QJsonDocument m_activeConfig;
     QByteArray m_currentBytes;

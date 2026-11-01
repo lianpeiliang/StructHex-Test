@@ -19,6 +19,7 @@
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLayout>
@@ -28,11 +29,11 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QSaveFile>
 #include <QSignalBlocker>
-#include <QSettings>
+#include <QStandardPaths>
 #include <QSpinBox>
 #include <QSplitter>
-#include <QTimer>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -42,37 +43,23 @@
 
 namespace {
 
-const char businessConfigPathKey[] = "businessDataCodec/businessConfigPath";
-const char structureDefinitionPathKey[] = "businessDataCodec/structureDefinitionPath";
-const char businessConfigDirectoryKey[] = "businessDataCodec/businessConfigDirectory";
-const char structureDefinitionDirectoryKey[] = "businessDataCodec/structureDefinitionDirectory";
-const char hexDataPathKey[] = "businessDataCodec/hexDataPath";
-const char hexDataDirectoryKey[] = "businessDataCodec/hexDataDirectory";
-
-QString dialogStartLocation(const QString &currentPath, const char *directoryKey)
+QString profileStorePath()
 {
-    const QString current = currentPath.trimmed();
-    if (!current.isEmpty()) {
-        const QFileInfo info(current);
-        if (info.exists())
-            return info.absoluteFilePath();
-        if (QDir(info.absolutePath()).exists())
-            return info.absolutePath();
-    }
-    QSettings settings(QStringLiteral("StructHex"), QStringLiteral("StructHex"));
-    const QString remembered = settings.value(QLatin1String(directoryKey)).toString();
-    return QDir(remembered).exists() ? remembered : QDir::homePath();
+    QString directory = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    if (directory.isEmpty())
+        directory = QDir::homePath() + QStringLiteral("/.config/StructHex");
+    return QDir(directory).filePath(QStringLiteral("business-codec-profiles.json"));
 }
 
-void rememberFileLocation(const QString &path, const char *fileKey, const char *directoryKey)
+QString dialogStartLocation(const QString &currentPath)
 {
-    if (path.trimmed().isEmpty())
-        return;
-    const QFileInfo info(path);
-    QSettings settings(QStringLiteral("StructHex"), QStringLiteral("StructHex"));
-    settings.setValue(QLatin1String(fileKey), info.absoluteFilePath());
-    settings.setValue(QLatin1String(directoryKey), info.absolutePath());
-    settings.sync();
+    const QString current = currentPath.trimmed();
+    if (current.isEmpty())
+        return QDir::homePath();
+    const QFileInfo info(current);
+    if (info.exists())
+        return info.absoluteFilePath();
+    return QDir(info.absolutePath()).exists() ? info.absolutePath() : QDir::homePath();
 }
 
 QString byteOffset(qint64 bits)
@@ -237,6 +224,34 @@ BusinessHexDecoderDialog::BusinessHexDecoderDialog(QWidget *parent) : QDialog(pa
     intro->setWordWrap(true);
     layout->addWidget(intro);
 
+    auto *profileRow = new QWidget(this);
+    auto *profileLayout = new QHBoxLayout(profileRow);
+    profileLayout->setContentsMargins(0, 0, 0, 0);
+    profileLayout->addWidget(new QLabel(QStringLiteral("配置方案："), profileRow));
+    m_profileSelector = new QComboBox(profileRow);
+    m_profileSelector->setObjectName(QStringLiteral("businessCodecProfileSelector"));
+    m_profileSelector->setMinimumWidth(260);
+    auto *loadProfile = new QPushButton(QStringLiteral("加载"), profileRow);
+    loadProfile->setObjectName(QStringLiteral("loadBusinessCodecProfileButton"));
+    auto *saveProfile = new QPushButton(QStringLiteral("保存当前组合"), profileRow);
+    saveProfile->setObjectName(QStringLiteral("saveBusinessCodecProfileButton"));
+    auto *deleteProfile = new QPushButton(QStringLiteral("删除方案"), profileRow);
+    deleteProfile->setObjectName(QStringLiteral("deleteBusinessCodecProfileButton"));
+    profileLayout->addWidget(m_profileSelector, 1);
+    profileLayout->addWidget(loadProfile);
+    profileLayout->addWidget(saveProfile);
+    profileLayout->addWidget(deleteProfile);
+    layout->addWidget(profileRow);
+    m_profileStatus = new QLabel(this);
+    m_profileStatus->setWordWrap(true);
+    m_profileStatus->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    layout->addWidget(m_profileStatus);
+    m_profileStorePath = profileStorePath();
+    readProfiles();
+    connect(loadProfile, &QPushButton::clicked, this, &BusinessHexDecoderDialog::loadSavedProfile);
+    connect(saveProfile, &QPushButton::clicked, this, &BusinessHexDecoderDialog::saveCurrentProfile);
+    connect(deleteProfile, &QPushButton::clicked, this, &BusinessHexDecoderDialog::deleteSelectedProfile);
+
     auto makePathRow = [this](QLineEdit *&edit, const QString &placeholder, QPushButton *&browse) {
         auto *row = new QWidget(this);
         auto *rowLayout = new QHBoxLayout(row);
@@ -255,15 +270,6 @@ BusinessHexDecoderDialog::BusinessHexDecoderDialog(QWidget *parent) : QDialog(pa
         QStringLiteral("选择 .business.json"), businessBrowse));
     form->addRow(QStringLiteral("结构定义 JSON："), makePathRow(m_structurePath,
         QStringLiteral("选择结构定义 JSON"), structureBrowse));
-    QSettings recentSettings(QStringLiteral("StructHex"), QStringLiteral("StructHex"));
-    const QString savedBusinessPath = recentSettings.value(QLatin1String(businessConfigPathKey)).toString();
-    const QString savedStructurePath = recentSettings.value(QLatin1String(structureDefinitionPathKey)).toString();
-    const bool restoreBusiness = QFileInfo(savedBusinessPath).isFile();
-    const bool restoreStructure = QFileInfo(savedStructurePath).isFile();
-    if (restoreBusiness)
-        m_businessPath->setText(QDir::toNativeSeparators(savedBusinessPath));
-    if (restoreStructure)
-        m_structurePath->setText(QDir::toNativeSeparators(savedStructurePath));
     layout->addLayout(form);
     connect(businessBrowse, &QPushButton::clicked, this, &BusinessHexDecoderDialog::chooseBusinessConfig);
     connect(structureBrowse, &QPushButton::clicked, this, &BusinessHexDecoderDialog::chooseStructureDefinition);
@@ -333,8 +339,6 @@ BusinessHexDecoderDialog::BusinessHexDecoderDialog(QWidget *parent) : QDialog(pa
     m_status->setWordWrap(true);
     m_status->setTextInteractionFlags(Qt::TextSelectableByMouse);
     leftLayout->addWidget(m_status);
-    if (restoreBusiness || restoreStructure)
-        m_status->setText(QStringLiteral("已恢复上次选择的文件路径；文件仍存在时会自动加载。"));
     m_results = new QTreeWidget(leftPane);
     m_results->setObjectName(QStringLiteral("businessDecodedFields"));
     m_results->setHeaderLabels({QStringLiteral("结构字段"), QStringLiteral("业务名称"), QStringLiteral("C++ 类型"),
@@ -375,18 +379,228 @@ BusinessHexDecoderDialog::BusinessHexDecoderDialog(QWidget *parent) : QDialog(pa
     layout->addLayout(buttons);
     connect(parse, &QPushButton::clicked, this, &BusinessHexDecoderDialog::decode);
     connect(close, &QPushButton::clicked, this, &QDialog::accept);
-    if (restoreBusiness && restoreStructure)
-        QTimer::singleShot(0, this, &BusinessHexDecoderDialog::initializeDefaultsIfReady);
+}
+
+void BusinessHexDecoderDialog::refreshProfileSelector()
+{
+    const QSignalBlocker blocker(m_profileSelector);
+    m_profileSelector->clear();
+    m_profileSelector->addItem(QStringLiteral("请选择一个配置方案"));
+    for (const QJsonValue &value : m_profiles) {
+        const QJsonObject profile = value.toObject();
+        const QString name = profile.value(QStringLiteral("name")).toString();
+        m_profileSelector->addItem(name);
+        m_profileSelector->setItemData(m_profileSelector->count() - 1,
+            QStringLiteral("业务配置：%1\n结构定义：%2")
+                .arg(profile.value(QStringLiteral("businessConfig")).toString(),
+                     profile.value(QStringLiteral("structureDefinition")).toString()), Qt::ToolTipRole);
+    }
+    m_profileSelector->setCurrentIndex(0);
+}
+
+void BusinessHexDecoderDialog::readProfiles()
+{
+    m_profiles = QJsonArray();
+    QFile file(m_profileStorePath);
+    if (!file.exists()) {
+        m_profileStatus->setText(QStringLiteral("配置方案保存在：%1").arg(QDir::toNativeSeparators(m_profileStorePath)));
+        refreshProfileSelector();
+        return;
+    }
+    if (!file.open(QIODevice::ReadOnly)) {
+        m_profileStatus->setText(QStringLiteral("无法读取配置方案文件：%1").arg(file.errorString()));
+        refreshProfileSelector();
+        return;
+    }
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()
+        || !document.object().value(QStringLiteral("profiles")).isArray()) {
+        m_profileStatus->setText(QStringLiteral("配置方案文件格式无效：%1").arg(
+            parseError.error == QJsonParseError::NoError ? QStringLiteral("缺少 profiles 数组") : parseError.errorString()));
+        refreshProfileSelector();
+        return;
+    }
+    const QJsonArray stored = document.object().value(QStringLiteral("profiles")).toArray();
+    for (const QJsonValue &value : stored) {
+        if (!value.isObject()) continue;
+        const QJsonObject profile = value.toObject();
+        if (profile.value(QStringLiteral("name")).toString().trimmed().isEmpty()
+            || profile.value(QStringLiteral("businessConfig")).toString().trimmed().isEmpty()
+            || profile.value(QStringLiteral("structureDefinition")).toString().trimmed().isEmpty())
+            continue;
+        m_profiles.append(QJsonObject{
+            {QStringLiteral("name"), profile.value(QStringLiteral("name")).toString().trimmed()},
+            {QStringLiteral("businessConfig"), profile.value(QStringLiteral("businessConfig")).toString()},
+            {QStringLiteral("structureDefinition"), profile.value(QStringLiteral("structureDefinition")).toString()}
+        });
+    }
+    m_profileStatus->setText(QStringLiteral("已读取 %1 个配置方案。配置方案文件：%2")
+        .arg(m_profiles.size()).arg(QDir::toNativeSeparators(m_profileStorePath)));
+    refreshProfileSelector();
+}
+
+bool BusinessHexDecoderDialog::writeProfiles(QString &error) const
+{
+    const QFileInfo storeInfo(m_profileStorePath);
+    if (!QDir().mkpath(storeInfo.absolutePath())) {
+        error = QStringLiteral("无法创建配置目录：%1").arg(storeInfo.absolutePath());
+        return false;
+    }
+    QSaveFile file(m_profileStorePath);
+    if (!file.open(QIODevice::WriteOnly)) {
+        error = file.errorString();
+        return false;
+    }
+    const QJsonObject root{{QStringLiteral("profiles"), m_profiles}};
+    if (file.write(QJsonDocument(root).toJson(QJsonDocument::Indented)) < 0) {
+        error = file.errorString();
+        file.cancelWriting();
+        return false;
+    }
+    if (!file.commit()) {
+        error = file.errorString();
+        return false;
+    }
+    return true;
+}
+
+void BusinessHexDecoderDialog::saveCurrentProfile()
+{
+    const QString businessPath = QFileInfo(m_businessPath->text().trimmed()).absoluteFilePath();
+    const QString structurePath = QFileInfo(m_structurePath->text().trimmed()).absoluteFilePath();
+    if (m_businessPath->text().trimmed().isEmpty() || m_structurePath->text().trimmed().isEmpty()
+        || !QFileInfo::exists(businessPath) || !QFileInfo::exists(structurePath)) {
+        QMessageBox::warning(this, QStringLiteral("无法保存方案"),
+            QStringLiteral("请先选择存在的业务配置 JSON 和结构定义 JSON 文件。"));
+        return;
+    }
+    QJsonDocument config;
+    QString error;
+    if (!loadBusinessConfig(businessPath, config, error)) {
+        QMessageBox::warning(this, QStringLiteral("业务配置无效"), error);
+        return;
+    }
+    const ParseResult structureResult = loadStructureDefinitionJson(structurePath);
+    if (!structureResult.success) {
+        QMessageBox::warning(this, QStringLiteral("结构定义无效"), structureResult.diagnostics.join(QLatin1Char('\n')));
+        return;
+    }
+    if (!validateBusinessConfig(config, structureResult.structure, error)) {
+        QMessageBox::warning(this, QStringLiteral("配置组合无效"), error);
+        return;
+    }
+
+    bool accepted = false;
+    const QString name = QInputDialog::getText(this, QStringLiteral("保存配置方案"),
+        QStringLiteral("方案名称："), QLineEdit::Normal, QString(), &accepted).trimmed();
+    if (!accepted) return;
+    if (name.isEmpty()) {
+        QMessageBox::warning(this, QStringLiteral("方案名称为空"), QStringLiteral("请输入方案名称。"));
+        return;
+    }
+
+    int existingIndex = -1;
+    for (int i = 0; i < m_profiles.size(); ++i) {
+        if (m_profiles.at(i).toObject().value(QStringLiteral("name")).toString().compare(name, Qt::CaseInsensitive) == 0) {
+            existingIndex = i;
+            break;
+        }
+    }
+    if (existingIndex >= 0 && QMessageBox::question(this, QStringLiteral("覆盖配置方案"),
+            QStringLiteral("已存在同名方案“%1”，要用当前文件组合覆盖吗？").arg(name),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+        return;
+
+    const QJsonObject profile{{QStringLiteral("name"), name},
+        {QStringLiteral("businessConfig"), QDir::cleanPath(businessPath)},
+        {QStringLiteral("structureDefinition"), QDir::cleanPath(structurePath)}};
+    const QJsonArray previous = m_profiles;
+    if (existingIndex >= 0) m_profiles.replace(existingIndex, profile);
+    else m_profiles.append(profile);
+    if (!writeProfiles(error)) {
+        m_profiles = previous;
+        QMessageBox::warning(this, QStringLiteral("保存失败"), error);
+        return;
+    }
+    refreshProfileSelector();
+    for (int i = 0; i < m_profiles.size(); ++i) {
+        if (m_profiles.at(i).toObject().value(QStringLiteral("name")).toString() == name) {
+            m_profileSelector->setCurrentIndex(i + 1);
+            break;
+        }
+    }
+    m_profileStatus->setText(QStringLiteral("配置方案“%1”已保存。文件路径会随方案一起保存。%2")
+        .arg(name, QDir::toNativeSeparators(m_profileStorePath)));
+}
+
+void BusinessHexDecoderDialog::loadSavedProfile()
+{
+    const int index = m_profileSelector->currentIndex() - 1;
+    if (index < 0 || index >= m_profiles.size()) {
+        QMessageBox::information(this, QStringLiteral("选择配置方案"), QStringLiteral("请先从下拉列表选择一个配置方案。"));
+        return;
+    }
+    if (!m_hexInput->toPlainText().trimmed().isEmpty()
+        && QMessageBox::question(this, QStringLiteral("加载配置方案"),
+            QStringLiteral("加载方案会替换当前文件组合，并用方案中的默认值生成 HEX。是否继续？"),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+        return;
+
+    const QJsonObject profile = m_profiles.at(index).toObject();
+    const QString businessPath = profile.value(QStringLiteral("businessConfig")).toString();
+    const QString structurePath = profile.value(QStringLiteral("structureDefinition")).toString();
+    m_hexInput->clear();
+    m_businessPath->setText(QDir::toNativeSeparators(businessPath));
+    m_structurePath->setText(QDir::toNativeSeparators(structurePath));
+    if (!QFileInfo::exists(businessPath) || !QFileInfo::exists(structurePath)) {
+        const QString missing = !QFileInfo::exists(businessPath) ? businessPath : structurePath;
+        clearResult(QStringLiteral("配置方案已选中，但文件不存在：%1").arg(missing));
+        m_profileStatus->setText(QStringLiteral("方案“%1”中的文件路径失效，可重新浏览选择文件。")
+            .arg(profile.value(QStringLiteral("name")).toString()));
+        return;
+    }
+    m_profileStatus->setText(QStringLiteral("正在加载配置方案“%1”…").arg(profile.value(QStringLiteral("name")).toString()));
+    decode();
+    if (!m_currentBytes.isEmpty())
+        m_profileStatus->setText(QStringLiteral("配置方案“%1”已加载。默认值已生成 HEX。")
+            .arg(profile.value(QStringLiteral("name")).toString()));
+    else
+        m_profileStatus->setText(QStringLiteral("配置方案已选中，但加载未完成；请查看解析状态并检查文件组合。"));
+}
+
+void BusinessHexDecoderDialog::deleteSelectedProfile()
+{
+    const int index = m_profileSelector->currentIndex() - 1;
+    if (index < 0 || index >= m_profiles.size()) {
+        QMessageBox::information(this, QStringLiteral("选择配置方案"), QStringLiteral("请先从下拉列表选择要删除的方案。"));
+        return;
+    }
+    const QString name = m_profiles.at(index).toObject().value(QStringLiteral("name")).toString();
+    if (QMessageBox::question(this, QStringLiteral("删除配置方案"),
+            QStringLiteral("确定删除配置方案“%1”吗？原始 JSON 文件不会被删除。" ).arg(name),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+        return;
+    const QJsonArray previous = m_profiles;
+    m_profiles.removeAt(index);
+    QString error;
+    if (!writeProfiles(error)) {
+        m_profiles = previous;
+        QMessageBox::warning(this, QStringLiteral("删除失败"), error);
+        return;
+    }
+    refreshProfileSelector();
+    m_profileStatus->setText(QStringLiteral("配置方案“%1”已删除。原始 JSON 文件未更改。%2")
+        .arg(name, QDir::toNativeSeparators(m_profileStorePath)));
 }
 
 void BusinessHexDecoderDialog::chooseBusinessConfig()
 {
     const QString path = QFileDialog::getOpenFileName(this, QStringLiteral("选择业务配置 JSON"),
-        dialogStartLocation(m_businessPath->text(), businessConfigDirectoryKey),
+        dialogStartLocation(m_businessPath->text()),
         QStringLiteral("业务配置 JSON (*.json);;所有文件 (*)"));
     if (!path.isEmpty()) {
         m_businessPath->setText(QDir::toNativeSeparators(path));
-        rememberFileLocation(path, businessConfigPathKey, businessConfigDirectoryKey);
         initializeDefaultsIfReady();
     }
 }
@@ -394,11 +608,10 @@ void BusinessHexDecoderDialog::chooseBusinessConfig()
 void BusinessHexDecoderDialog::chooseStructureDefinition()
 {
     const QString path = QFileDialog::getOpenFileName(this, QStringLiteral("选择结构定义 JSON"),
-        dialogStartLocation(m_structurePath->text(), structureDefinitionDirectoryKey),
+        dialogStartLocation(m_structurePath->text()),
         QStringLiteral("结构定义 JSON (*.json);;所有文件 (*)"));
     if (!path.isEmpty()) {
         m_structurePath->setText(QDir::toNativeSeparators(path));
-        rememberFileLocation(path, structureDefinitionPathKey, structureDefinitionDirectoryKey);
         initializeDefaultsIfReady();
     }
 }
@@ -414,10 +627,9 @@ void BusinessHexDecoderDialog::initializeDefaultsIfReady()
 void BusinessHexDecoderDialog::chooseHexFile()
 {
     const QString path = QFileDialog::getOpenFileName(this, QStringLiteral("打开十六进制文本"),
-        dialogStartLocation(QString(), hexDataDirectoryKey),
+        dialogStartLocation(QString()),
         QStringLiteral("十六进制文本 (*.hex *.txt);;所有文件 (*)"));
     if (path.isEmpty()) return;
-    rememberFileLocation(path, hexDataPathKey, hexDataDirectoryKey);
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
         QMessageBox::warning(this, QStringLiteral("无法读取文件"), file.errorString());
@@ -779,8 +991,6 @@ void BusinessHexDecoderDialog::decode()
         clearResult(error);
         return;
     }
-    rememberFileLocation(businessPath, businessConfigPathKey, businessConfigDirectoryKey);
-    rememberFileLocation(structurePath, structureDefinitionPathKey, structureDefinitionDirectoryKey);
     if (!config.object().contains(QStringLiteral("structureFingerprint")) && !m_legacyConfigAccepted) {
         const auto answer = QMessageBox::question(this, QStringLiteral("旧版业务配置"),
             QStringLiteral("此业务配置没有结构布局指纹，只能校验结构体名称和字段路径。仍要继续吗？"),
