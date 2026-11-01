@@ -700,9 +700,9 @@ void BusinessHexDecoderDialog::rebuildBusinessForm(const QJsonObject &fields, co
                     [this] { businessFormEdited(); });
         } else if (widgetType == QLatin1String("combobox")) {
             auto *combo = new QComboBox(m_formContent);
-            combo->setObjectName(QStringLiteral("businessSemanticCombo"));
+            combo->setProperty("businessSemanticCombo", true);
             combo->setStyleSheet(QStringLiteral(
-                "QComboBox#businessSemanticCombo { padding-top: 2px; padding-bottom: 2px; min-height: 0px; }"));
+                "QComboBox[businessSemanticCombo=\"true\"] { padding-top: 2px; padding-bottom: 2px; min-height: 0px; }"));
             const QJsonArray options = config.value(QStringLiteral("options")).toArray();
             for (const QJsonValue &value : options) {
                 const QJsonObject option = value.toObject();
