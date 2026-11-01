@@ -183,6 +183,7 @@ BusinessConfigEditorDialog::BusinessConfigEditorDialog(const StructInfo &structu
     m_defaultHint = hint;
     hint->setWordWrap(true);
     controlLayout->addWidget(hint);
+    controlLayout->addStretch(1);
     editorLayout->addWidget(controlGroup, 1);
     editorLayout->addWidget(conversionGroup);
     body->addWidget(editorScroll, 2);
