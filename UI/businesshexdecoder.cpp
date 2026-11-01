@@ -452,7 +452,7 @@ void BusinessHexDecoderDialog::populateBusinessForm(const DecodeResult &decoded)
     for (auto it = m_fieldWidgets.constBegin(); it != m_fieldWidgets.constEnd(); ++it) {
         const QString path = it.key();
         QWidget *editor = it.value();
-        const QJsonObject config = m_fieldConfigs.value(path);
+        const QJsonObject config = m_fieldConfigs.value(path).toObject();
         const QString widgetType = config.value(QStringLiteral("widget")).toString();
         const QString raw = decodedValues.value(path);
         if (!isEditableField(m_fieldInfo.value(path))) {
@@ -537,14 +537,15 @@ bool BusinessHexDecoderDialog::collectBusinessValues(const QString &fieldPath,
         QWidget *editor = it.value();
         if (!isEditableField(m_fieldInfo.value(path)))
             continue;
-        const QString widgetType = m_fieldConfigs.value(path).value(QStringLiteral("widget")).toString();
+        const QJsonObject config = m_fieldConfigs.value(path).toObject();
+        const QString widgetType = config.value(QStringLiteral("widget")).toString();
         const FieldInfo field = m_fieldInfo.value(path);
         QString raw;
         if (widgetType == QLatin1String("spinbox") || widgetType == QLatin1String("doublespinbox")) {
             const double display = widgetType == QLatin1String("spinbox")
                 ? qobject_cast<QSpinBox *>(editor)->value()
                 : qobject_cast<QDoubleSpinBox *>(editor)->value();
-            const double scale = configuredNumber(m_fieldConfigs.value(path), QStringLiteral("scale"), 1.0);
+            const double scale = configuredNumber(config, QStringLiteral("scale"), 1.0);
             if (!std::isfinite(scale) || scale <= 0.0) {
                 error = QStringLiteral("%1：换算比例必须是大于 0 的有限数字。").arg(path);
                 return false;
