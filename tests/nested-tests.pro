@@ -1,4 +1,4 @@
-include(../clangTest.pro)
+include(../StructX.pro)
 
 TARGET = nested-tests
 CONFIG += console

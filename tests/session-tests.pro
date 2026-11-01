@@ -1,4 +1,4 @@
-include(../clangTest.pro)
+include(../StructX.pro)
 TARGET = session-tests
 QT = core
 CONFIG += console

@@ -14,7 +14,7 @@ StructHex 是一个使用 qmake（`.pro`）构建的 Qt Widgets 结构体与业�
 
 | 文件 | 用途 |
 | --- | --- |
-| `clangTest.pro` | Qt 项目配置及 libclang 链接配置 |
+| `StructX.pro` | Qt 项目配置及 libclang 链接配置 |
 | `main.cpp` | 创建 QApplication，启动窗口 |
 | `UI/mainwindow.h / .cpp` | 协调结构定义加载、字段编辑区、操作按钮及解析诊断 |
 | `UI/workflowlauncher.h / .cpp` | 启动工作台，分别进入结构定义、表单设计和表单运行流程 |
@@ -97,7 +97,7 @@ StructHex 是一个使用 qmake（`.pro`）构建的 Qt Widgets 结构体与业�
 
 ## 在 Qt Creator 中运行
 
-1. 打开 `clangTest.pro`，选择 **Desktop Qt 5.12.8 MinGW 64-bit** Kit。
+1. 打开 `StructX.pro`，选择 **Desktop Qt 5.12.8 MinGW 64-bit** Kit。
 2. 进入 **项目 → Run → Run Environment → 详情 → 批量编辑**，添加：
 
    ```text
@@ -260,7 +260,7 @@ $env:PATH = "$clangRoot/bin;$qtBin;" + $env:PATH
 
 New-Item -ItemType Directory -Path build -Force | Out-Null
 Set-Location build
-& "$qtBin/qmake.exe" ../clangTest.pro -spec win32-clang-g++ "LIBCLANG_ROOT=$clangRoot" "CONFIG+=release" "CONFIG-=debug_and_release"
+& "$qtBin/qmake.exe" ../StructX.pro -spec win32-clang-g++ "LIBCLANG_ROOT=$clangRoot" "CONFIG+=release" "CONFIG-=debug_and_release"
 & "$qtRoot/Tools/mingw730_64/bin/mingw32-make.exe" -j2
 .\StructHex.exe
 ```
