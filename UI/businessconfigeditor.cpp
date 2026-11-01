@@ -92,20 +92,43 @@ BusinessConfigEditorDialog::BusinessConfigEditorDialog(const StructInfo &structu
                                      << QStringLiteral("lineedit") << QStringLiteral("group")
                                      << QStringLiteral("readonly"));
     form->addRow(QStringLiteral("UI控件："), m_widget);
+    connect(m_widget, &QComboBox::currentTextChanged, this, [this](const QString &newWidget) {
+        if (m_selectedIndex >= 0 && m_selectedIndex < m_fields.size()) {
+            FieldConfig &field = m_fields[m_selectedIndex];
+            const QString oldWidget = field.widget;
+            const bool oldNumeric = oldWidget == QLatin1String("spinbox")
+                || oldWidget == QLatin1String("doublespinbox");
+            const bool newNumeric = newWidget == QLatin1String("spinbox")
+                || newWidget == QLatin1String("doublespinbox");
+            const bool sameDefaultKind = (oldNumeric && newNumeric) || oldWidget == newWidget;
+            if (!sameDefaultKind) {
+                field.defaultValue.clear();
+                field.defaultIsString = false;
+                m_defaultValue->clear();
+            }
+            field.widget = newWidget;
+        }
+        updatePropertyVisibility();
+    });
     m_unit = new QLineEdit(editor);
     form->addRow(QStringLiteral("单位："), m_unit);
+    m_unitLabel = form->labelForField(m_unit);
     m_minimum = new QLineEdit(editor);
     form->addRow(QStringLiteral("最小值："), m_minimum);
+    m_minimumLabel = form->labelForField(m_minimum);
     m_maximum = new QLineEdit(editor);
     form->addRow(QStringLiteral("最大值："), m_maximum);
+    m_maximumLabel = form->labelForField(m_maximum);
     auto *rangeHint = new QLabel(
         QStringLiteral("最小值和最大值按界面显示值填写，不是结构体原始值。例：m_Start 填 -90～90°、换算比例 0.01，对应原始值 -9000～9000。"),
         editor);
     rangeHint->setWordWrap(true);
     rangeHint->setObjectName(QStringLiteral("businessConfigRangeHint"));
+    m_rangeHint = rangeHint;
     form->addRow(rangeHint);
     m_scale = new QLineEdit(editor);
     auto *conversionGroup = new QGroupBox(QStringLiteral("数值换算"), editor);
+    m_conversionGroup = conversionGroup;
     auto *conversionForm = new QFormLayout(conversionGroup);
     auto *scalePanel = new QWidget(editor);
     auto *scaleLayout = new QVBoxLayout(scalePanel);
@@ -120,9 +143,12 @@ BusinessConfigEditorDialog::BusinessConfigEditorDialog(const StructInfo &structu
     conversionForm->addRow(QStringLiteral("换算比例："), scalePanel);
     m_decimals = new QLineEdit(editor);
     form->addRow(QStringLiteral("小数位数："), m_decimals);
+    m_decimalsLabel = form->labelForField(m_decimals);
     m_defaultValue = new QLineEdit(editor);
     form->addRow(QStringLiteral("默认值："), m_defaultValue);
+    m_defaultLabel = form->labelForField(m_defaultValue);
     auto *optionsPanel = new QWidget(editor);
+    m_optionsPanel = optionsPanel;
     auto *optionsLayout = new QVBoxLayout(optionsPanel);
     optionsLayout->setContentsMargins(0, 0, 0, 0);
     m_options = new QTableWidget(0, 2, optionsPanel);
@@ -139,9 +165,11 @@ BusinessConfigEditorDialog::BusinessConfigEditorDialog(const StructInfo &structu
     optionButtons->addStretch();
     optionsLayout->addLayout(optionButtons);
     form->addRow(QStringLiteral("下拉选项："), optionsPanel);
+    m_optionsLabel = form->labelForField(optionsPanel);
     connect(addOption, &QPushButton::clicked, this, &BusinessConfigEditorDialog::addOptionRow);
     connect(removeOption, &QPushButton::clicked, this, &BusinessConfigEditorDialog::removeOptionRow);
     auto *hint = new QLabel(QStringLiteral("默认值也按界面显示值填写。"), editor);
+    m_defaultHint = hint;
     hint->setWordWrap(true);
     form->addRow(hint);
     editorLayout->addWidget(controlGroup, 1);
@@ -241,6 +269,35 @@ void BusinessConfigEditorDialog::selectField(int index)
             m_options->setItem(row, 1, valueItem);
         }
     }
+    updatePropertyVisibility();
+}
+
+void BusinessConfigEditorDialog::updatePropertyVisibility()
+{
+    const bool selected = m_selectedIndex >= 0 && m_selectedIndex < m_fields.size();
+    const QString widget = selected ? m_widget->currentText() : QString();
+    const bool integerInput = widget == QLatin1String("spinbox");
+    const bool realInput = widget == QLatin1String("doublespinbox");
+    const bool numericInput = integerInput || realInput;
+    const bool comboInput = widget == QLatin1String("combobox");
+    const bool valueInput = numericInput || comboInput || widget == QLatin1String("checkbox")
+        || widget == QLatin1String("lineedit");
+
+    m_unit->setVisible(selected && numericInput);
+    m_unitLabel->setVisible(selected && numericInput);
+    m_minimum->setVisible(selected && numericInput);
+    m_minimumLabel->setVisible(selected && numericInput);
+    m_maximum->setVisible(selected && numericInput);
+    m_maximumLabel->setVisible(selected && numericInput);
+    m_rangeHint->setVisible(selected && numericInput);
+    m_conversionGroup->setVisible(selected && numericInput);
+    m_decimals->setVisible(selected && realInput);
+    m_decimalsLabel->setVisible(selected && realInput);
+    m_defaultValue->setVisible(selected && valueInput);
+    m_defaultLabel->setVisible(selected && valueInput);
+    m_defaultHint->setVisible(selected && valueInput);
+    m_optionsPanel->setVisible(selected && comboInput);
+    m_optionsLabel->setVisible(selected && comboInput);
 }
 
 void BusinessConfigEditorDialog::saveField()
@@ -256,6 +313,17 @@ void BusinessConfigEditorDialog::saveField()
     field.scale = m_scale->text().trimmed();
     field.decimals = m_decimals->text().trimmed();
     field.defaultValue = m_defaultValue->text().trimmed();
+    field.defaultIsString = false;
+    if (field.widget == QLatin1String("combobox")) {
+        for (int row = 0; row < m_options->rowCount(); ++row) {
+            const QTableWidgetItem *valueItem = m_options->item(row, 1);
+            if (valueItem && valueItem->text().trimmed() == field.defaultValue
+                && valueItem->data(Qt::UserRole).toBool()) {
+                field.defaultIsString = true;
+                break;
+            }
+        }
+    }
     QJsonArray options;
     for (int row = 0; row < m_options->rowCount(); ++row) {
         const QString label = m_options->item(row, 0) ? m_options->item(row, 0)->text().trimmed() : QString();
@@ -292,7 +360,7 @@ void BusinessConfigEditorDialog::removeOptionRow()
 bool BusinessConfigEditorDialog::validateField(const FieldConfig &field, QString &error) const
 {
     if (field.label.isEmpty()) {
-        error = QStringLiteral("%1：业务标签不能为空。").arg(field.path);
+        error = QStringLiteral("%1：显示名称不能为空。").arg(field.path);
         return false;
     }
     const QStringList widgetTypes = QStringList() << QStringLiteral("spinbox")
@@ -303,29 +371,34 @@ bool BusinessConfigEditorDialog::validateField(const FieldConfig &field, QString
         error = QStringLiteral("%1：UI 控件类型不受支持。").arg(field.path);
         return false;
     }
+    const bool integerInput = field.widget == QLatin1String("spinbox");
+    const bool realInput = field.widget == QLatin1String("doublespinbox");
+    const bool numericInput = integerInput || realInput;
+    const bool comboInput = field.widget == QLatin1String("combobox");
+    const bool checkboxInput = field.widget == QLatin1String("checkbox");
     const auto parseFinite = [](const QString &text, double &value) {
         bool ok = false;
         value = text.toDouble(&ok);
         return ok && std::isfinite(value);
     };
     double minimum = 0.0, maximum = 0.0, scale = 0.0;
-    if (!field.minimum.isEmpty() && !parseFinite(field.minimum, minimum)) {
+    if (numericInput && !field.minimum.isEmpty() && !parseFinite(field.minimum, minimum)) {
         error = QStringLiteral("%1：最小值必须是有限数字。").arg(field.path);
         return false;
     }
-    if (!field.maximum.isEmpty() && !parseFinite(field.maximum, maximum)) {
+    if (numericInput && !field.maximum.isEmpty() && !parseFinite(field.maximum, maximum)) {
         error = QStringLiteral("%1：最大值必须是有限数字。").arg(field.path);
         return false;
     }
-    if (!field.minimum.isEmpty() && !field.maximum.isEmpty() && minimum > maximum) {
+    if (numericInput && !field.minimum.isEmpty() && !field.maximum.isEmpty() && minimum > maximum) {
         error = QStringLiteral("%1：最小值不能大于最大值。").arg(field.path);
         return false;
     }
-    if (!field.scale.isEmpty() && (!parseFinite(field.scale, scale) || scale <= 0.0)) {
+    if (numericInput && !field.scale.isEmpty() && (!parseFinite(field.scale, scale) || scale <= 0.0)) {
         error = QStringLiteral("%1：换算比例必须是大于 0 的有限数字。").arg(field.path);
         return false;
     }
-    if (!field.decimals.isEmpty()) {
+    if (realInput && !field.decimals.isEmpty()) {
         bool ok = false;
         const int decimals = field.decimals.toInt(&ok);
         if (!ok || decimals < 0 || decimals > 15) {
@@ -333,7 +406,7 @@ bool BusinessConfigEditorDialog::validateField(const FieldConfig &field, QString
             return false;
         }
     }
-    if (!field.defaultValue.isEmpty()) {
+    if (numericInput && !field.defaultValue.isEmpty()) {
         double ignored = 0.0;
         if (!parseFinite(field.defaultValue, ignored)) {
             error = QStringLiteral("%1：默认值目前需为有限数字。").arg(field.path);
@@ -345,18 +418,26 @@ bool BusinessConfigEditorDialog::validateField(const FieldConfig &field, QString
             return false;
         }
     }
-    QJsonParseError parseError;
-    const QJsonDocument optionsDoc = QJsonDocument::fromJson(field.options.toUtf8(), &parseError);
-    if (parseError.error != QJsonParseError::NoError || !optionsDoc.isArray()) {
-        error = QStringLiteral("%1：下拉选项必须是有效的 JSON 数组。").arg(field.path);
+    if (checkboxInput && !field.defaultValue.isEmpty()
+        && field.defaultValue != QLatin1String("true") && field.defaultValue != QLatin1String("false")) {
+        error = QStringLiteral("%1：复选框默认值应为 true 或 false。").arg(field.path);
         return false;
     }
-    const QJsonArray options = optionsDoc.array();
-    if (field.widget == QLatin1String("combobox") && options.isEmpty()) {
+    QJsonArray options;
+    if (comboInput) {
+        QJsonParseError parseError;
+        const QJsonDocument optionsDoc = QJsonDocument::fromJson(field.options.toUtf8(), &parseError);
+        if (parseError.error != QJsonParseError::NoError || !optionsDoc.isArray()) {
+            error = QStringLiteral("%1：下拉选项必须是有效的 JSON 数组。").arg(field.path);
+            return false;
+        }
+        options = optionsDoc.array();
+    }
+    if (comboInput && options.isEmpty()) {
         error = QStringLiteral("%1：组合框至少需要一个选项。").arg(field.path);
         return false;
     }
-    for (int i = 0; i < options.size(); ++i) {
+    for (int i = 0; comboInput && i < options.size(); ++i) {
         const QJsonObject option = options.at(i).toObject();
         if (!options.at(i).isObject() || !option.value(QStringLiteral("label")).isString()
             || !(option.value(QStringLiteral("value")).isDouble()
@@ -366,6 +447,21 @@ bool BusinessConfigEditorDialog::validateField(const FieldConfig &field, QString
         }
         if (option.value(QStringLiteral("label")).toString().trimmed().isEmpty()) {
             error = QStringLiteral("%1：选项显示标签不能为空。").arg(field.path);
+            return false;
+        }
+    }
+    if (comboInput && !field.defaultValue.isEmpty()) {
+        const QJsonValue defaultValue = field.defaultIsString
+            ? QJsonValue(field.defaultValue) : numberOrString(field.defaultValue);
+        bool foundDefault = false;
+        for (const QJsonValue &optionValue : options) {
+            if (optionValue.toObject().value(QStringLiteral("value")) == defaultValue) {
+                foundDefault = true;
+                break;
+            }
+        }
+        if (!foundDefault) {
+            error = QStringLiteral("%1：默认值必须对应一个下拉选项的 value。").arg(field.path);
             return false;
         }
     }
@@ -380,16 +476,31 @@ QJsonDocument BusinessConfigEditorDialog::configDocument() const
             {QStringLiteral("label"), field.label},
             {QStringLiteral("widget"), field.widget}
         };
-        if (!field.unit.isEmpty()) item.insert(QStringLiteral("unit"), field.unit);
-        if (!field.minimum.isEmpty()) item.insert(QStringLiteral("min"), numberOrString(field.minimum));
-        if (!field.maximum.isEmpty()) item.insert(QStringLiteral("max"), numberOrString(field.maximum));
-        if (!field.scale.isEmpty()) item.insert(QStringLiteral("scale"), numberOrString(field.scale));
-        if (!field.decimals.isEmpty()) item.insert(QStringLiteral("decimals"), field.decimals.toInt());
-        if (!field.defaultValue.isEmpty()) item.insert(QStringLiteral("default"), numberOrString(field.defaultValue));
-        QJsonParseError parseError;
-        const QJsonDocument optionsDoc = QJsonDocument::fromJson(field.options.toUtf8(), &parseError);
-        if (parseError.error == QJsonParseError::NoError && optionsDoc.isArray() && !optionsDoc.array().isEmpty())
-            item.insert(QStringLiteral("options"), optionsDoc.array());
+        const bool numericInput = field.widget == QLatin1String("spinbox")
+            || field.widget == QLatin1String("doublespinbox");
+        if (numericInput && !field.unit.isEmpty()) item.insert(QStringLiteral("unit"), field.unit);
+        if (numericInput && !field.minimum.isEmpty()) item.insert(QStringLiteral("min"), numberOrString(field.minimum));
+        if (numericInput && !field.maximum.isEmpty()) item.insert(QStringLiteral("max"), numberOrString(field.maximum));
+        if (numericInput && !field.scale.isEmpty()) item.insert(QStringLiteral("scale"), numberOrString(field.scale));
+        if (field.widget == QLatin1String("doublespinbox") && !field.decimals.isEmpty())
+            item.insert(QStringLiteral("decimals"), field.decimals.toInt());
+        const bool hasDefault = numericInput || field.widget == QLatin1String("combobox")
+            || field.widget == QLatin1String("checkbox") || field.widget == QLatin1String("lineedit");
+        if (hasDefault && !field.defaultValue.isEmpty()) {
+            if (field.widget == QLatin1String("checkbox"))
+                item.insert(QStringLiteral("default"), field.defaultValue == QLatin1String("true"));
+            else if (field.widget == QLatin1String("lineedit")
+                     || (field.widget == QLatin1String("combobox") && field.defaultIsString))
+                item.insert(QStringLiteral("default"), field.defaultValue);
+            else
+                item.insert(QStringLiteral("default"), numberOrString(field.defaultValue));
+        }
+        if (field.widget == QLatin1String("combobox")) {
+            QJsonParseError parseError;
+            const QJsonDocument optionsDoc = QJsonDocument::fromJson(field.options.toUtf8(), &parseError);
+            if (parseError.error == QJsonParseError::NoError && optionsDoc.isArray())
+                item.insert(QStringLiteral("options"), optionsDoc.array());
+        }
         fieldsObject.insert(field.path, item);
     }
     QJsonObject root{
@@ -564,6 +675,12 @@ bool BusinessConfigEditorDialog::loadConfigFile(const QString &path, QString &er
         FieldConfig &field = candidate[fieldIndexes.value(it.key())];
         field.label = object.value(QStringLiteral("label")).toString();
         field.widget = object.value(QStringLiteral("widget")).toString();
+        const bool numericWidget = field.widget == QLatin1String("spinbox")
+            || field.widget == QLatin1String("doublespinbox");
+        const bool doubleWidget = field.widget == QLatin1String("doublespinbox");
+        const bool comboWidget = field.widget == QLatin1String("combobox");
+        const bool checkboxWidget = field.widget == QLatin1String("checkbox");
+        const bool lineEditWidget = field.widget == QLatin1String("lineedit");
         const auto readOptionalString = [&object, &error, &it](const QString &key, QString &target) {
             if (!object.contains(key))
                 return true;
@@ -574,8 +691,6 @@ bool BusinessConfigEditorDialog::loadConfigFile(const QString &path, QString &er
             target = object.value(key).toString();
             return true;
         };
-        if (!readOptionalString(QStringLiteral("unit"), field.unit))
-            return false;
         const auto readOptionalNumber = [&object, &error, &it](const QString &key, QString &target) {
             if (!object.contains(key))
                 return true;
@@ -587,12 +702,13 @@ bool BusinessConfigEditorDialog::loadConfigFile(const QString &path, QString &er
             target = QString::number(value.toDouble(), 'g', 15);
             return true;
         };
-        if (!readOptionalNumber(QStringLiteral("min"), field.minimum)
-            || !readOptionalNumber(QStringLiteral("max"), field.maximum)
-            || !readOptionalNumber(QStringLiteral("scale"), field.scale)
-            || !readOptionalNumber(QStringLiteral("default"), field.defaultValue))
+        if (numericWidget
+            && (!readOptionalString(QStringLiteral("unit"), field.unit)
+                || !readOptionalNumber(QStringLiteral("min"), field.minimum)
+                || !readOptionalNumber(QStringLiteral("max"), field.maximum)
+                || !readOptionalNumber(QStringLiteral("scale"), field.scale)))
             return false;
-        if (object.contains(QStringLiteral("decimals"))) {
+        if (doubleWidget && object.contains(QStringLiteral("decimals"))) {
             const QJsonValue decimals = object.value(QStringLiteral("decimals"));
             if (!decimals.isDouble() || std::floor(decimals.toDouble()) != decimals.toDouble()
                 || decimals.toDouble() < 0.0 || decimals.toDouble() > 15.0) {
@@ -601,7 +717,38 @@ bool BusinessConfigEditorDialog::loadConfigFile(const QString &path, QString &er
             }
             field.decimals = QString::number(int(decimals.toDouble()));
         }
-        if (object.contains(QStringLiteral("options"))) {
+        if (object.contains(QStringLiteral("default"))) {
+            const QJsonValue value = object.value(QStringLiteral("default"));
+            if (numericWidget) {
+                if (!value.isDouble() || !std::isfinite(value.toDouble())) {
+                    error = QStringLiteral("字段 %1 的 default 必须是有限数字。").arg(it.key());
+                    return false;
+                }
+                field.defaultValue = QString::number(value.toDouble(), 'g', 15);
+            } else if (comboWidget) {
+                if (!(value.isDouble() || value.isString())) {
+                    error = QStringLiteral("字段 %1 的组合框 default 必须是数字或字符串。").arg(it.key());
+                    return false;
+                }
+                field.defaultValue = value.isString()
+                    ? value.toString() : QString::number(value.toDouble(), 'g', 15);
+                field.defaultIsString = value.isString();
+            } else if (checkboxWidget) {
+                if (!value.isBool()) {
+                    error = QStringLiteral("字段 %1 的复选框 default 必须是布尔值。").arg(it.key());
+                    return false;
+                }
+                field.defaultValue = value.toBool() ? QStringLiteral("true") : QStringLiteral("false");
+            } else if (lineEditWidget) {
+                if (!(value.isString() || value.isDouble())) {
+                    error = QStringLiteral("字段 %1 的文本框 default 必须是字符串或数字。").arg(it.key());
+                    return false;
+                }
+                field.defaultValue = value.isString()
+                    ? value.toString() : QString::number(value.toDouble(), 'g', 15);
+            }
+        }
+        if (comboWidget && object.contains(QStringLiteral("options"))) {
             if (!object.value(QStringLiteral("options")).isArray()) {
                 error = QStringLiteral("字段 %1 的 options 必须是数组。").arg(it.key());
                 return false;
