@@ -2,6 +2,7 @@
 
 #include "businessformpreview.h"
 #include "businessconfigutils.h"
+#include "definitionjson.h"
 
 #include <QDir>
 #include <QFileDialog>
