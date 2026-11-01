@@ -17,10 +17,12 @@ public:
 signals:
     void loadRequested(const QString &filePath); // 只表达用户意图，不校验或解析文件。
     void exportRequested(); // 请求导出当前已加载定义，不读取正在编辑的路径。
+    void businessConfigRequested(); // 请求打开业务配置定义编辑器。
 
 private:
     QLineEdit *m_filePath; // 编辑中的路径与当前会话的已加载路径相互独立。
     QPushButton *m_exportButton;
+    QPushButton *m_businessConfigButton;
 };
 
 #endif

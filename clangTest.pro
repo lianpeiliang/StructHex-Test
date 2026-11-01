@@ -42,3 +42,7 @@ SOURCES += UI/definitionpanel.cpp
 HEADERS += UI/definitionpanel.h
 SOURCES += UI/definitionfilebar.cpp UI/structureselectorbar.cpp
 HEADERS += UI/definitionfilebar.h UI/structureselectorbar.h
+SOURCES += UI/businessconfigeditor.cpp
+HEADERS += UI/businessconfigeditor.h
+SOURCES += UI/businessformpreview.cpp
+HEADERS += UI/businessformpreview.h
