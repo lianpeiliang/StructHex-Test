@@ -659,7 +659,7 @@ void BusinessConfigEditorDialog::previewForm()
             return;
         }
     }
-    BusinessFormPreviewDialog preview(configDocument(), this);
+    BusinessFormPreviewDialog preview(configDocument(), m_structure, m_structureDefinitionPath, this);
     preview.exec();
 }
 
