@@ -493,7 +493,8 @@ void BusinessHexDecoderDialog::saveCurrentProfile()
 
     bool accepted = false;
     const QString name = QInputDialog::getText(this, QStringLiteral("保存配置方案"),
-        QStringLiteral("方案名称："), QLineEdit::Normal, QString(), &accepted).trimmed();
+        QStringLiteral("方案名称："), QLineEdit::Normal,
+        structureResult.structure.name, &accepted).trimmed();
     if (!accepted) return;
     if (name.isEmpty()) {
         QMessageBox::warning(this, QStringLiteral("方案名称为空"), QStringLiteral("请输入方案名称。"));
