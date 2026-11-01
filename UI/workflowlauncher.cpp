@@ -57,7 +57,7 @@ WorkflowLauncher::WorkflowLauncher(const QString &defaultStructurePath, QWidget 
     addWorkflow(QStringLiteral("3. 业务表单运行"),
         QStringLiteral("分别选择 .business.json 和结构定义 JSON，打开动态表单并生成结构体十六进制。"),
         QStringLiteral("businessRunnerButton"), [this] { openBusinessRunner(); });
-    addWorkflow(QStringLiteral("4. 业务语义解析 Plus"),
+    addWorkflow(QStringLiteral("4. 业务数据编解码"),
         QStringLiteral("选择业务配置 JSON 和结构定义 JSON，解析十六进制并查看字段含义；右侧业务表单可编辑，改动会自动生成新数据并刷新字段映射。"),
         QStringLiteral("businessHexDecoderButton"), [this] { openBusinessHexDecoder(); });
     root->addStretch(1);

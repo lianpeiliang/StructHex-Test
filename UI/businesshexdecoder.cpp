@@ -190,7 +190,7 @@ void appendResults(QTreeWidgetItem *parent, const QVector<DecodedField> &fields,
 
 BusinessHexDecoderDialog::BusinessHexDecoderDialog(QWidget *parent) : QDialog(parent)
 {
-    setWindowTitle(QStringLiteral("业务语义解析 Plus"));
+    setWindowTitle(QStringLiteral("业务数据编解码"));
     setObjectName(QStringLiteral("businessHexDecoderDialog"));
     resize(1660, 900);
     setMinimumSize(1200, 680);
