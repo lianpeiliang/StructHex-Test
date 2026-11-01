@@ -1,13 +1,20 @@
 #ifndef BUSINESSHEXDECODER_H
 #define BUSINESSHEXDECODER_H
 
+#include "binarydecoder.h"
+
 #include <QDialog>
+#include <QByteArray>
+#include <QHash>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 class QComboBox;
 class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
 class QTreeWidget;
+class QWidget;
 
 class BusinessHexDecoderDialog : public QDialog
 {
@@ -21,6 +28,13 @@ private:
     void chooseHexFile();
     void decode();
     void clearResult(const QString &message);
+    void rebuildBusinessForm(const QJsonObject &fields, const StructInfo &structure);
+    void populateBusinessForm(const DecodeResult &decoded);
+    void businessFormEdited();
+    void renderResults(const DecodeResult &decoded, const StructInfo &structure,
+                       const QJsonObject &config, const QByteArray &bytes);
+    bool collectBusinessValues(const QString &fieldPath, QHash<QString, QString> &values,
+                               QString &error) const;
 
     QLineEdit *m_businessPath = nullptr;
     QLineEdit *m_structurePath = nullptr;
@@ -28,6 +42,16 @@ private:
     QComboBox *m_byteOrder = nullptr;
     QLabel *m_status = nullptr;
     QTreeWidget *m_results = nullptr;
+    QWidget *m_businessForm = nullptr;
+    QWidget *m_formContent = nullptr;
+    QPlainTextEdit *m_generatedHex = nullptr;
+    QHash<QString, QWidget *> m_fieldWidgets;
+    QHash<QString, QJsonObject> m_fieldConfigs;
+    QHash<QString, FieldInfo> m_fieldInfo;
+    StructInfo m_activeStructure;
+    QJsonDocument m_activeConfig;
+    QByteArray m_currentBytes;
+    bool m_populatingForm = false;
     bool m_legacyConfigAccepted = false;
 };
 

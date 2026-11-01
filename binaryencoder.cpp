@@ -18,7 +18,7 @@ const qint64 maximumPreviewBytes = 1024 * 1024;
 // 按 bit 写入可以同时支持普通字段和不足一个字节的位域。
 // written 与结果等长，每个置 1 的位表示该位置已经由某个字段占用，用于检查重叠。
 bool writeBits(BinaryResult &result, QByteArray &written, const QString &path,
-               qint64 offset, int count, const QByteArray &source)
+               qint64 offset, int count, const QByteArray &source, bool preserveExisting = false)
 {
     const qint64 totalBits = qint64(result.bytes.size()) * 8;
     if (offset < 0 || count <= 0 || offset > totalBits || count > totalBits - offset
@@ -39,8 +39,11 @@ bool writeBits(BinaryResult &result, QByteArray &written, const QString &path,
         const int byte = int((offset + bit) / 8);
         const unsigned mask = 1u << ((offset + bit) % 8);
         written[byte] = char(static_cast<unsigned char>(written.at(byte)) | mask);
-        if (static_cast<unsigned char>(source.at(bit / 8)) & (1u << (bit % 8)))
-            result.bytes[byte] = char(static_cast<unsigned char>(result.bytes.at(byte)) | mask);
+        if (!preserveExisting) {
+            const unsigned current = static_cast<unsigned char>(result.bytes.at(byte));
+            const bool set = static_cast<unsigned char>(source.at(bit / 8)) & (1u << (bit % 8));
+            result.bytes[byte] = char(set ? (current | mask) : (current & ~mask));
+        }
     }
     return true;
 }
@@ -98,7 +101,8 @@ QByteArray encodeFloating(const FieldInfo &field, const QString &text)
 
 // 递归遍历成员树。路径负责找到用户输入，absoluteOffsetBits 负责定位最终字节。
 void encodeFields(BinaryResult &result, QByteArray &written, const QVector<FieldInfo> &fields,
-                  const QHash<QString, QString> &values, const QString &parentPath)
+                  const QHash<QString, QString> &values, const QString &parentPath,
+                  bool preserveExisting)
 {
     for (const FieldInfo &field : fields) {
         const QString path = parentPath.isEmpty() ? field.name : parentPath + QLatin1Char('.') + field.name;
@@ -116,19 +120,38 @@ void encodeFields(BinaryResult &result, QByteArray &written, const QVector<Field
                 result.diagnostics.append(QStringLiteral("%1：数组大小或偏移无效。").arg(path));
             } else if (field.size > 0) {
                 writeBits(result, written, path, field.absoluteOffsetBits, int(field.size * 8),
-                          QByteArray(int(field.size), '\0'));
+                          QByteArray(int(field.size), '\0'), preserveExisting);
             }
             continue;
         }
         if (field.valueKind == FieldValueKind::Record) {
-            encodeFields(result, written, field.children, values, path);
+            encodeFields(result, written, field.children, values, path, preserveExisting);
             continue;
         }
         if (!isEditableField(field)) {
+            if (preserveExisting) {
+                const qint64 width = field.isBitField ? field.valueBits : field.size * 8;
+                if (width > 0 && width <= maximumPreviewBytes * 8
+                    && field.absoluteOffsetBits >= 0) {
+                    const int bytes = int((width + 7) / 8);
+                    writeBits(result, written, path, field.absoluteOffsetBits, int(width),
+                              QByteArray(bytes, '\0'), true);
+                }
+                continue;
+            }
             result.diagnostics.append(path + QStringLiteral("：无法编码只读字段。") + field.readOnlyReason);
             continue;
         }
         if (!values.contains(path)) {
+            if (preserveExisting) {
+                const qint64 width = field.isBitField ? field.valueBits : field.size * 8;
+                if (width > 0 && width <= maximumPreviewBytes * 8 && field.absoluteOffsetBits >= 0) {
+                    const int bytes = int((width + 7) / 8);
+                    writeBits(result, written, path, field.absoluteOffsetBits, int(width),
+                              QByteArray(bytes, '\0'), true);
+                }
+                continue;
+            }
             result.diagnostics.append(QStringLiteral("%1：缺少字段值。").arg(path));
             continue;
         }
@@ -177,10 +200,35 @@ BinaryResult encodeStructure(const StructInfo &structure, const QHash<QString, Q
     // 先把整个缓冲区清零，再写有效字段，因此没有被写到的填充区域自然保持为 0。
     result.bytes = QByteArray(int(structure.size), '\0');
     QByteArray written(int(structure.size), '\0');
-    encodeFields(result, written, structure.fields, values, QString());
+    encodeFields(result, written, structure.fields, values, QString(), false);
     result.success = result.diagnostics.isEmpty();
     if (!result.success)
         result.bytes.clear(); // 出错时不展示不完整的数据。
+    return result;
+}
+
+BinaryResult encodeStructure(const StructInfo &structure, const QHash<QString, QString> &values,
+                             const QByteArray &baseBytes)
+{
+    BinaryResult result;
+    if (!structure.binaryEncodingIssue.isEmpty()) {
+        result.diagnostics.append(structure.name + QStringLiteral("：") + structure.binaryEncodingIssue);
+        return result;
+    }
+    if (structure.size <= 0 || structure.size > maximumPreviewBytes) {
+        result.diagnostics.append(QStringLiteral("结构体大小无效或超过预览上限（1 MiB）。"));
+        return result;
+    }
+    if (baseBytes.size() != structure.size) {
+        result.diagnostics.append(QStringLiteral("原始字节长度与结构体大小不一致，无法安全保留未编辑区域。"));
+        return result;
+    }
+    result.bytes = baseBytes;
+    QByteArray written(int(structure.size), '\0');
+    encodeFields(result, written, structure.fields, values, QString(), true);
+    result.success = result.diagnostics.isEmpty();
+    if (!result.success)
+        result.bytes.clear();
     return result;
 }
 

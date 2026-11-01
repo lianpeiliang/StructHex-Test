@@ -19,6 +19,11 @@ struct BinaryResult
 // 每个可编辑字段都需有合法输入；数组区域补 0，不支持的字段或布局通过 diagnostics 报错。
 BinaryResult encodeStructure(const StructInfo &structure, const QHash<QString, QString> &values);
 
+// 将可编辑字段编码到现有结构体字节上；未编辑的只读字段、数组和填充区域保留原始字节。
+// baseBytes 必须与 structure.size 相同，values 中只需包含本次要写入的可编辑字段。
+BinaryResult encodeStructure(const StructInfo &structure, const QHash<QString, QString> &values,
+                             const QByteArray &baseBytes);
+
 // 只负责排版：每行最多 16 字节，左边是偏移，右边是十六进制字节。
 // 例如两个字节 0x12、0x34 显示为 "00000000  12 34"；返回文字，不修改输入字节。
 QString formatHexDump(const QByteArray &bytes);
