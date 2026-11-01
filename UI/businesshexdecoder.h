@@ -13,6 +13,7 @@ class QComboBox;
 class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
+class QPushButton;
 class QTreeWidget;
 class QWidget;
 
@@ -32,7 +33,7 @@ private:
     void populateBusinessForm(const DecodeResult &decoded);
     void businessFormEdited();
     void renderResults(const DecodeResult &decoded, const StructInfo &structure,
-                       const QJsonObject &config, const QByteArray &bytes);
+                       const QJsonObject &config);
     bool collectBusinessValues(const QString &fieldPath, QHash<QString, QString> &values,
                                QString &error) const;
 
@@ -44,7 +45,7 @@ private:
     QTreeWidget *m_results = nullptr;
     QWidget *m_businessForm = nullptr;
     QWidget *m_formContent = nullptr;
-    QPlainTextEdit *m_generatedHex = nullptr;
+    QPushButton *m_copyHexButton = nullptr;
     QHash<QString, QWidget *> m_fieldWidgets;
     QJsonObject m_fieldConfigs;
     QHash<QString, FieldInfo> m_fieldInfo;

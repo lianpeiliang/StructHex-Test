@@ -233,19 +233,29 @@ BusinessHexDecoderDialog::BusinessHexDecoderDialog(QWidget *parent) : QDialog(pa
     auto *hexRow = new QWidget(leftPane);
     auto *hexLayout = new QHBoxLayout(hexRow);
     hexLayout->setContentsMargins(0, 0, 0, 0);
-    auto *hexLabel = new QLabel(QStringLiteral("十六进制数据："), hexRow);
+    auto *hexLabel = new QLabel(QStringLiteral("当前十六进制数据："), hexRow);
     QPushButton *hexBrowse = new QPushButton(QStringLiteral("从文件读取…"), hexRow);
+    m_copyHexButton = new QPushButton(QStringLiteral("复制当前 HEX"), hexRow);
+    m_copyHexButton->setEnabled(false);
     hexLayout->addWidget(hexLabel);
     hexLayout->addStretch();
     hexLayout->addWidget(hexBrowse);
+    hexLayout->addWidget(m_copyHexButton);
     leftLayout->addWidget(hexRow);
     m_hexInput = new QPlainTextEdit(leftPane);
     m_hexInput->setObjectName(QStringLiteral("businessHexInput"));
-    m_hexInput->setPlaceholderText(QStringLiteral("粘贴十六进制字节，例如：22 01 94 11 28 00 12 00\n支持空格、换行、逗号和 0x 前缀；不含偏移地址。"));
+    m_hexInput->setPlaceholderText(QStringLiteral("粘贴十六进制字节，例如：22 01 94 11 28 00 12 00\n右侧表单编辑后，这里的当前 HEX 会同步更新。"));
     m_hexInput->setMaximumHeight(150);
     leftLayout->addWidget(m_hexInput);
     connect(hexBrowse, &QPushButton::clicked, this, &BusinessHexDecoderDialog::chooseHexFile);
-    connect(m_hexInput, &QPlainTextEdit::textChanged, this, [this] { clearResult(QStringLiteral("输入已更新，请重新解析。")); });
+    connect(m_hexInput, &QPlainTextEdit::textChanged, this, [this] {
+        m_copyHexButton->setEnabled(!m_hexInput->toPlainText().trimmed().isEmpty());
+        clearResult(QStringLiteral("输入已更新，请重新解析。"));
+    });
+    connect(m_copyHexButton, &QPushButton::clicked, this, [this] {
+        if (!m_hexInput->toPlainText().trimmed().isEmpty())
+            QApplication::clipboard()->setText(m_hexInput->toPlainText());
+    });
 
     auto *actionRow = new QHBoxLayout;
     actionRow->addWidget(new QLabel(QStringLiteral("数据字节序："), leftPane));
@@ -279,7 +289,7 @@ BusinessHexDecoderDialog::BusinessHexDecoderDialog(QWidget *parent) : QDialog(pa
     m_businessForm = new QWidget(workArea);
     auto *rightLayout = new QVBoxLayout(m_businessForm);
     rightLayout->setContentsMargins(6, 0, 0, 0);
-    auto *formTitle = new QLabel(QStringLiteral("业务表单（编辑后自动生成十六进制）"), m_businessForm);
+    auto *formTitle = new QLabel(QStringLiteral("业务表单（编辑后自动更新左侧 HEX）"), m_businessForm);
     QFont formTitleFont = formTitle->font();
     formTitleFont.setBold(true);
     formTitle->setFont(formTitleFont);
@@ -292,25 +302,6 @@ BusinessHexDecoderDialog::BusinessHexDecoderDialog(QWidget *parent) : QDialog(pa
     emptyFormLayout->addStretch();
     formScroll->setWidget(m_formContent);
     rightLayout->addWidget(formScroll, 1);
-    auto *generatedRow = new QWidget(m_businessForm);
-    auto *generatedLayout = new QHBoxLayout(generatedRow);
-    generatedLayout->setContentsMargins(0, 0, 0, 0);
-    generatedLayout->addWidget(new QLabel(QStringLiteral("当前生成的 HEX："), generatedRow));
-    auto *copyHex = new QPushButton(QStringLiteral("复制"), generatedRow);
-    generatedLayout->addStretch();
-    generatedLayout->addWidget(copyHex);
-    rightLayout->addWidget(generatedRow);
-    m_generatedHex = new QPlainTextEdit(m_businessForm);
-    m_generatedHex->setObjectName(QStringLiteral("businessGeneratedHex"));
-    m_generatedHex->setReadOnly(true);
-    m_generatedHex->setMaximumHeight(92);
-    m_generatedHex->setPlaceholderText(QStringLiteral("解析或编辑业务表单后，这里显示对应的十六进制数据。"));
-    rightLayout->addWidget(m_generatedHex);
-    connect(copyHex, &QPushButton::clicked, this, [this] {
-        if (!m_generatedHex->toPlainText().isEmpty())
-            QApplication::clipboard()->setText(m_generatedHex->toPlainText());
-    });
-
     workArea->addWidget(leftPane);
     workArea->addWidget(m_businessForm);
     workArea->setStretchFactor(0, 3);
@@ -611,7 +602,7 @@ bool BusinessHexDecoderDialog::collectBusinessValues(const QString &fieldPath,
 }
 
 void BusinessHexDecoderDialog::renderResults(const DecodeResult &decoded, const StructInfo &structure,
-                                             const QJsonObject &config, const QByteArray &bytes)
+                                             const QJsonObject &config)
 {
     m_results->clear();
     const QJsonObject fields = config.value(QStringLiteral("fields")).toObject();
@@ -619,7 +610,6 @@ void BusinessHexDecoderDialog::renderResults(const DecodeResult &decoded, const 
         QStringLiteral("struct"), QStringLiteral("0"), QString(), QStringLiteral("%1 字节").arg(structure.size), QString(), QString()});
     appendResults(root, decoded.fields, fields);
     m_results->expandAll();
-    m_generatedHex->setPlainText(QString::fromLatin1(bytes.toHex(' ').toUpper()));
 }
 
 void BusinessHexDecoderDialog::businessFormEdited()
@@ -652,7 +642,7 @@ void BusinessHexDecoderDialog::businessFormEdited()
         const QSignalBlocker blocker(m_hexInput);
         m_hexInput->setPlainText(QString::fromLatin1(encoded.bytes.toHex(' ').toUpper()));
     }
-    renderResults(decoded, m_activeStructure, m_activeConfig.object(), encoded.bytes);
+    renderResults(decoded, m_activeStructure, m_activeConfig.object());
     m_status->setText(QStringLiteral("已根据右侧业务表单重新生成 HEX，并同步刷新左侧字段解析结果。未编辑的只读字段、数组和填充字节已保留。"));
 }
 
@@ -661,7 +651,6 @@ void BusinessHexDecoderDialog::clearResult(const QString &message)
     m_results->clear();
     m_status->setText(message);
     m_currentBytes.clear();
-    m_generatedHex->clear();
     m_businessForm->setEnabled(false);
 }
 
@@ -716,7 +705,7 @@ void BusinessHexDecoderDialog::decode()
     m_currentBytes = hex.bytes;
     rebuildBusinessForm(config.object().value(QStringLiteral("fields")).toObject(), structure);
     populateBusinessForm(decoded);
-    renderResults(decoded, structure, config.object(), hex.bytes);
+    renderResults(decoded, structure, config.object());
     if (m_byteOrder->currentIndex() == 0) {
         m_status->setText(QStringLiteral("解析成功：%1 字节。右侧表单可编辑，修改后会自动重新编码，并同步刷新左侧解析结果。")
                           .arg(hex.bytes.size()));
