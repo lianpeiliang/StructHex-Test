@@ -3,6 +3,7 @@
 #include "binarydecoder.h"
 #include "businessconfigutils.h"
 #include "definitionjson.h"
+#include "fieldvalue.h"
 
 #include <QComboBox>
 #include <QAbstractItemView>
