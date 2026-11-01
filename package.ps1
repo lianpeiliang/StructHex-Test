@@ -31,7 +31,7 @@ try {
     try {
         Write-Host 'Building Release...'
         Invoke-Checked (Join-Path $qtBin 'qmake.exe') @(
-            (Join-Path $projectRoot 'StructX.pro'), '-spec', 'win32-g++',
+            (Join-Path $projectRoot 'StructHex.pro'), '-spec', 'win32-g++',
             "LIBCLANG_ROOT=$($ClangRoot.Replace('\', '/'))", 'CONFIG+=release', 'CONFIG-=debug_and_release'
         )
         Invoke-Checked (Join-Path $compilerBin 'mingw32-make.exe') @('-j2')
@@ -97,7 +97,7 @@ try {
     Copy-Item -LiteralPath $testHeadersDir -Destination $appDir -Recurse
     foreach ($file in @(
         'main.cpp', 'structuresession.h', 'structuresession.cpp', 'headerparser.h', 'headerparser.cpp', 'fieldvalue.h', 'fieldvalue.cpp', 'binaryencoder.h', 'binaryencoder.cpp', 'binarydecoder.h', 'binarydecoder.cpp', 'definitionjson.h', 'definitionjson.cpp',
-        'StructX.pro', 'resources.qrc', 'README.md', 'package.ps1'
+        'StructHex.pro', 'resources.qrc', 'README.md', 'package.ps1'
     )) {
         Copy-Item -LiteralPath (Join-Path $projectRoot $file) -Destination $sourceDir
     }

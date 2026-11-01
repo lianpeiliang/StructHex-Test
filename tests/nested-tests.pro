@@ -1,4 +1,4 @@
-include(../StructX.pro)
+include(../StructHex.pro)
 
 TARGET = nested-tests
 CONFIG += console

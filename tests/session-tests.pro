@@ -1,4 +1,4 @@
-include(../StructX.pro)
+include(../StructHex.pro)
 TARGET = session-tests
 QT = core
 CONFIG += console
