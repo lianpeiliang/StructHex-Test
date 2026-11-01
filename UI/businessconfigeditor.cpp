@@ -467,6 +467,8 @@ void BusinessConfigEditorDialog::writeConfig(const QString &path)
     }
     m_currentConfigPath = QFileInfo(path).absoluteFilePath();
     m_status->setText(QStringLiteral("当前配置：%1").arg(QDir::toNativeSeparators(m_currentConfigPath)));
+    QMessageBox::information(this, QStringLiteral("保存成功"),
+        QStringLiteral("业务配置 JSON 已保存到：\n%1").arg(QDir::toNativeSeparators(m_currentConfigPath)));
 }
 
 void BusinessConfigEditorDialog::openConfig()
