@@ -43,6 +43,7 @@ private:
     void saveField();
     void updatePropertyVisibility();
     void openConfig();
+    void chooseStructureDefinition();
     void previewForm();
     void saveConfig();
     void saveConfigAs();
@@ -54,12 +55,14 @@ private:
     QJsonDocument configDocument() const;
 
     StructInfo m_structure;
+    QString m_structureDefinitionPath;
     QVector<FieldConfig> m_defaultFields;
     QVector<FieldConfig> m_fields;
     QHash<QString, QWidget *> m_propertyRows;
     QString m_currentConfigPath;
     QTreeWidget *m_fieldTree = nullptr;
     QLabel *m_status = nullptr;
+    QLabel *m_structureStatus = nullptr;
     QWidget *m_conversionGroup = nullptr;
     QLineEdit *m_title = nullptr;
     QLineEdit *m_label = nullptr;

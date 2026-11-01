@@ -1,5 +1,6 @@
 #include "businessconfigeditor.h"
 #include "businessformpreview.h"
+#include "definitionjson.h"
 
 #include <QComboBox>
 #include <QDir>
@@ -193,12 +194,18 @@ BusinessConfigEditorDialog::BusinessConfigEditorDialog(const StructInfo &structu
     m_status = new QLabel(QStringLiteral("基于当前结构定义创建业务配置。"), this);
     m_status->setTextInteractionFlags(Qt::TextSelectableByMouse);
     root->addWidget(m_status);
+    m_structureStatus = new QLabel(QStringLiteral("原始结构定义 JSON：尚未手动选择"), this);
+    m_structureStatus->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    root->addWidget(m_structureStatus);
     auto *open = new QPushButton(QStringLiteral("打开业务配置 JSON…"), this);
+    auto *chooseStructure = new QPushButton(QStringLiteral("选择原始结构 JSON…"), this);
+    chooseStructure->setToolTip(QStringLiteral("手动选择用于匹配字段布局和后续十六进制编码的结构定义 JSON。"));
     auto *preview = new QPushButton(QStringLiteral("预览表单"), this);
     auto *save = new QPushButton(QStringLiteral("保存"), this);
     auto *saveAs = new QPushButton(QStringLiteral("另存为…"), this);
     auto *close = new QPushButton(QStringLiteral("关闭"), this);
     buttons->addWidget(open);
+    buttons->addWidget(chooseStructure);
     buttons->addStretch();
     buttons->addWidget(preview);
     buttons->addWidget(save);
@@ -214,6 +221,7 @@ BusinessConfigEditorDialog::BusinessConfigEditorDialog(const StructInfo &structu
         selectField(current ? current->data(0, Qt::UserRole).toInt() : -1);
     });
     connect(open, &QPushButton::clicked, this, &BusinessConfigEditorDialog::openConfig);
+    connect(chooseStructure, &QPushButton::clicked, this, &BusinessConfigEditorDialog::chooseStructureDefinition);
     connect(preview, &QPushButton::clicked, this, &BusinessConfigEditorDialog::previewForm);
     connect(save, &QPushButton::clicked, this, &BusinessConfigEditorDialog::saveConfig);
     connect(saveAs, &QPushButton::clicked, this, &BusinessConfigEditorDialog::saveConfigAs);
@@ -601,6 +609,40 @@ void BusinessConfigEditorDialog::openConfig()
         return;
     }
     m_status->setText(QStringLiteral("当前配置：%1").arg(QDir::toNativeSeparators(m_currentConfigPath)));
+}
+
+void BusinessConfigEditorDialog::chooseStructureDefinition()
+{
+    const QString path = QFileDialog::getOpenFileName(this, QStringLiteral("选择原始结构定义 JSON"),
+        m_structureDefinitionPath.isEmpty() ? QString() : QFileInfo(m_structureDefinitionPath).absolutePath(),
+        QStringLiteral("结构定义 JSON (*.json);;所有文件 (*)"));
+    if (path.isEmpty())
+        return;
+
+    const ParseResult result = loadStructureDefinitionJson(path);
+    if (!result.success) {
+        QMessageBox::warning(this, QStringLiteral("无法加载结构定义"),
+            result.diagnostics.join(QLatin1Char('\n')));
+        return;
+    }
+    if (result.structure.name != m_structure.name) {
+        QMessageBox::warning(this, QStringLiteral("结构体不匹配"),
+            QStringLiteral("所选文件包含结构体“%1”，当前业务配置对应“%2”。")
+                .arg(result.structure.name, m_structure.name));
+        return;
+    }
+    const QByteArray currentLayout = structureDefinitionJson(m_structure).toJson(QJsonDocument::Compact);
+    const QByteArray selectedLayout = structureDefinitionJson(result.structure).toJson(QJsonDocument::Compact);
+    if (currentLayout != selectedLayout) {
+        QMessageBox::warning(this, QStringLiteral("结构布局不匹配"),
+            QStringLiteral("结构体名称相同，但字段类型或内存布局不同。请选择与当前业务配置字段一致的结构定义 JSON。"));
+        return;
+    }
+
+    m_structure = result.structure;
+    m_structureDefinitionPath = QFileInfo(path).absoluteFilePath();
+    m_structureStatus->setText(QStringLiteral("原始结构定义 JSON：%1")
+        .arg(QDir::toNativeSeparators(m_structureDefinitionPath)));
 }
 
 void BusinessConfigEditorDialog::previewForm()
