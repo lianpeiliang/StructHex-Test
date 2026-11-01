@@ -1,6 +1,6 @@
 # StructHex · 结构体数据编辑器
 
-StructHex 是一个使用 qmake（`.pro`）构建的 Qt Widgets 结构体与业务表单工具。启动后进入工作台，按“结构定义 → 业务表单设计 → 业务表单运行”分阶段操作。结构定义阶段通过 libclang 解析 C++ 头文件或加载结构定义 JSON；业务表单设计阶段编辑字段显示和控件规则；业务表单运行阶段根据业务 JSON 和匹配的结构定义生成表单及十六进制数据。命令行传入路径时仍可直接打开结构定义窗口。
+StructHex 是一个使用 qmake（`.pro`）构建的 Qt Widgets 结构体与业务表单工具。启动后进入工作台，按“结构定义 → 业务表单设计 → 业务表单运行”分阶段操作，并可使用“业务语义解析 Plus”将结构定义 JSON 与业务配置 JSON 联合起来解析十六进制数据。结构定义阶段通过 libclang 解析 C++ 头文件或加载结构定义 JSON；业务表单设计阶段编辑字段显示和控件规则；业务表单运行阶段根据业务 JSON 和匹配的结构定义生成表单及十六进制数据；Plus 解析阶段在结构解析结果中补充业务名称、单位、换算值和下拉选项含义。命令行传入路径时仍可直接打开结构定义窗口。
 
 应用图标采用 Microsoft Fluent UI System Icons 的 [Code Block 彩色图标](https://github.com/microsoft/fluentui-system-icons/blob/main/assets/Code%20Block/SVG/ic_fluent_code_block_48_color.svg)，遵循 MIT 许可。图标源文件、多尺寸 Windows `.ico` 及许可保存在 `assets/`；程序内嵌图标，便携包同时附带许可文件。
 
@@ -23,6 +23,8 @@ StructHex 是一个使用 qmake（`.pro`）构建的 Qt Widgets 结构体与业�
 | `UI/definitionfilebar.h / .cpp` | 定义文件路径输入、打开和重新加载 |
 | `UI/businessconfigeditor.h / .cpp` | 根据当前结构字段编辑业务表单元数据，并导出业务配置 JSON |
 | `UI/businessformrunner.h / .cpp` | 手动选择业务配置和结构定义 JSON，校验后启动运行表单 |
+| `UI/businesshexdecoder.h / .cpp` | 联合结构定义和业务配置解析十六进制，并显示业务语义 |
+| `businessconfigutils.h / .cpp` | 统一加载和校验业务配置 JSON，检查结构体名称、字段路径及布局指纹 |
 | `UI/structureselectorbar.h / .cpp` | 结构体候选刷新、选择和展开/折叠操作 |
 | `UI/framelesswindow.h / .cpp` | 自定义标题栏、窗口按钮及 Windows 原生拖动、缩放、工作区处理 |
 | `UI/hexdialogs.h / .cpp` | 十六进制预览、复制/导出、解析与粘贴导入弹窗及输入记忆 |
@@ -50,6 +52,12 @@ StructHex 是一个使用 qmake（`.pro`）构建的 Qt Widgets 结构体与业�
 测试和示例头文件统一放在 `TestHeader/` 目录，便携包及随包源码也保留同名目录。
 
 `build/` 和 `*.pro.user` 已加入 Git 忽略规则。
+
+### 业务语义解析 Plus
+
+在启动工作台选择 **业务语义解析 Plus**，分别选择 `.business.json` 和对应的结构定义 JSON，然后粘贴十六进制字节，或从 `.hex` / `.txt` 文件读取。点击 **解析并显示业务含义** 后，结果树同时展示结构字段、业务名称、C++ 类型、偏移、原始字节、结构值和业务显示值。业务显示值根据业务配置中的控件类型解释：下拉框显示匹配的选项标签，数值控件按“结构值 × 换算比例”显示并附带单位，复选框显示选中状态。
+
+结构定义 JSON 决定字段布局，业务配置 JSON 只提供显示元数据。程序会检查结构体名称、字段路径和可用的结构布局指纹；旧版配置没有指纹时会要求确认。Plus 解析只查看并解释输入数据，不会修改两个 JSON 文件或填回结构定义编辑器。字节序默认小端，可切换大端；大端位域仍不支持。
 
 ## 建议阅读顺序
 

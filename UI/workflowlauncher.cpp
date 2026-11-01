@@ -1,6 +1,7 @@
 #include "workflowlauncher.h"
 
 #include "businessconfigeditor.h"
+#include "businesshexdecoder.h"
 #include "businessformrunner.h"
 #include "definitionjson.h"
 #include "mainwindow.h"
@@ -56,6 +57,9 @@ WorkflowLauncher::WorkflowLauncher(const QString &defaultStructurePath, QWidget 
     addWorkflow(QStringLiteral("3. 业务表单运行"),
         QStringLiteral("分别选择 .business.json 和结构定义 JSON，打开动态表单并生成结构体十六进制。"),
         QStringLiteral("businessRunnerButton"), [this] { openBusinessRunner(); });
+    addWorkflow(QStringLiteral("4. 业务语义解析 Plus"),
+        QStringLiteral("选择业务配置 JSON 和结构定义 JSON，解析十六进制数据并查看字段的业务名称、换算值、单位及选项含义。"),
+        QStringLiteral("businessHexDecoderButton"), [this] { openBusinessHexDecoder(); });
     root->addStretch(1);
     auto *close = new QPushButton(QStringLiteral("退出"), this);
     close->setObjectName(QStringLiteral("exitButton"));
@@ -94,5 +98,11 @@ void WorkflowLauncher::openBusinessDesigner()
 void WorkflowLauncher::openBusinessRunner()
 {
     BusinessFormRunnerDialog dialog(this);
+    dialog.exec();
+}
+
+void WorkflowLauncher::openBusinessHexDecoder()
+{
+    BusinessHexDecoderDialog dialog(this);
     dialog.exec();
 }

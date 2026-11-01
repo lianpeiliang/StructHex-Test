@@ -14,6 +14,7 @@ private:
     void openStructureWorkspace();
     void openBusinessDesigner();
     void openBusinessRunner();
+    void openBusinessHexDecoder();
 
     QString m_defaultStructurePath;
 };

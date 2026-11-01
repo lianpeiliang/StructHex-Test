@@ -13,7 +13,8 @@ RESOURCES += $$PWD/resources.qrc
 # SOURCES 中的 .cpp 会参与编译；HEADERS 列出头文件，便于 Qt Creator 展示和项目管理。
 INCLUDEPATH += $$PWD
 SOURCES += main.cpp headerparser.cpp fieldvalue.cpp binaryencoder.cpp binarydecoder.cpp definitionjson.cpp
-HEADERS += headerparser.h fieldvalue.h binaryencoder.h binarydecoder.h definitionjson.h
+SOURCES += businessconfigutils.cpp
+HEADERS += headerparser.h fieldvalue.h binaryencoder.h binarydecoder.h definitionjson.h businessconfigutils.h
 
 # 界面代码统一放在 UI/，数据解析与编解码模块保留在项目根目录。
 SOURCES += UI/mainwindow.cpp UI/framelesswindow.cpp UI/fieldeditor.cpp UI/hexdialogs.cpp UI/theme.cpp
@@ -46,5 +47,5 @@ SOURCES += UI/businessconfigeditor.cpp
 HEADERS += UI/businessconfigeditor.h
 SOURCES += UI/businessformpreview.cpp
 HEADERS += UI/businessformpreview.h
-SOURCES += UI/businessformrunner.cpp UI/workflowlauncher.cpp
-HEADERS += UI/businessformrunner.h UI/workflowlauncher.h
+SOURCES += UI/businessformrunner.cpp UI/businesshexdecoder.cpp UI/workflowlauncher.cpp
+HEADERS += UI/businessformrunner.h UI/businesshexdecoder.h UI/workflowlauncher.h
