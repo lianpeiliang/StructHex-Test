@@ -14,6 +14,7 @@
 #include <QDoubleSpinBox>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFont>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -28,8 +29,10 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSignalBlocker>
+#include <QSettings>
 #include <QSpinBox>
 #include <QSplitter>
+#include <QTimer>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -38,6 +41,39 @@
 #include <limits>
 
 namespace {
+
+const char businessConfigPathKey[] = "businessDataCodec/businessConfigPath";
+const char structureDefinitionPathKey[] = "businessDataCodec/structureDefinitionPath";
+const char businessConfigDirectoryKey[] = "businessDataCodec/businessConfigDirectory";
+const char structureDefinitionDirectoryKey[] = "businessDataCodec/structureDefinitionDirectory";
+const char hexDataPathKey[] = "businessDataCodec/hexDataPath";
+const char hexDataDirectoryKey[] = "businessDataCodec/hexDataDirectory";
+
+QString dialogStartLocation(const QString &currentPath, const char *directoryKey)
+{
+    const QString current = currentPath.trimmed();
+    if (!current.isEmpty()) {
+        const QFileInfo info(current);
+        if (info.exists())
+            return info.absoluteFilePath();
+        if (QDir(info.absolutePath()).exists())
+            return info.absolutePath();
+    }
+    QSettings settings(QStringLiteral("StructHex"), QStringLiteral("StructHex"));
+    const QString remembered = settings.value(QLatin1String(directoryKey)).toString();
+    return QDir(remembered).exists() ? remembered : QDir::homePath();
+}
+
+void rememberFileLocation(const QString &path, const char *fileKey, const char *directoryKey)
+{
+    if (path.trimmed().isEmpty())
+        return;
+    const QFileInfo info(path);
+    QSettings settings(QStringLiteral("StructHex"), QStringLiteral("StructHex"));
+    settings.setValue(QLatin1String(fileKey), info.absoluteFilePath());
+    settings.setValue(QLatin1String(directoryKey), info.absolutePath());
+    settings.sync();
+}
 
 QString byteOffset(qint64 bits)
 {
@@ -219,6 +255,15 @@ BusinessHexDecoderDialog::BusinessHexDecoderDialog(QWidget *parent) : QDialog(pa
         QStringLiteral("选择 .business.json"), businessBrowse));
     form->addRow(QStringLiteral("结构定义 JSON："), makePathRow(m_structurePath,
         QStringLiteral("选择结构定义 JSON"), structureBrowse));
+    QSettings recentSettings(QStringLiteral("StructHex"), QStringLiteral("StructHex"));
+    const QString savedBusinessPath = recentSettings.value(QLatin1String(businessConfigPathKey)).toString();
+    const QString savedStructurePath = recentSettings.value(QLatin1String(structureDefinitionPathKey)).toString();
+    const bool restoreBusiness = QFileInfo(savedBusinessPath).isFile();
+    const bool restoreStructure = QFileInfo(savedStructurePath).isFile();
+    if (restoreBusiness)
+        m_businessPath->setText(QDir::toNativeSeparators(savedBusinessPath));
+    if (restoreStructure)
+        m_structurePath->setText(QDir::toNativeSeparators(savedStructurePath));
     layout->addLayout(form);
     connect(businessBrowse, &QPushButton::clicked, this, &BusinessHexDecoderDialog::chooseBusinessConfig);
     connect(structureBrowse, &QPushButton::clicked, this, &BusinessHexDecoderDialog::chooseStructureDefinition);
@@ -288,6 +333,8 @@ BusinessHexDecoderDialog::BusinessHexDecoderDialog(QWidget *parent) : QDialog(pa
     m_status->setWordWrap(true);
     m_status->setTextInteractionFlags(Qt::TextSelectableByMouse);
     leftLayout->addWidget(m_status);
+    if (restoreBusiness || restoreStructure)
+        m_status->setText(QStringLiteral("已恢复上次选择的文件路径；文件仍存在时会自动加载。"));
     m_results = new QTreeWidget(leftPane);
     m_results->setObjectName(QStringLiteral("businessDecodedFields"));
     m_results->setHeaderLabels({QStringLiteral("结构字段"), QStringLiteral("业务名称"), QStringLiteral("C++ 类型"),
@@ -328,14 +375,18 @@ BusinessHexDecoderDialog::BusinessHexDecoderDialog(QWidget *parent) : QDialog(pa
     layout->addLayout(buttons);
     connect(parse, &QPushButton::clicked, this, &BusinessHexDecoderDialog::decode);
     connect(close, &QPushButton::clicked, this, &QDialog::accept);
+    if (restoreBusiness && restoreStructure)
+        QTimer::singleShot(0, this, &BusinessHexDecoderDialog::initializeDefaultsIfReady);
 }
 
 void BusinessHexDecoderDialog::chooseBusinessConfig()
 {
     const QString path = QFileDialog::getOpenFileName(this, QStringLiteral("选择业务配置 JSON"),
-        m_businessPath->text(), QStringLiteral("业务配置 JSON (*.json);;所有文件 (*)"));
+        dialogStartLocation(m_businessPath->text(), businessConfigDirectoryKey),
+        QStringLiteral("业务配置 JSON (*.json);;所有文件 (*)"));
     if (!path.isEmpty()) {
         m_businessPath->setText(QDir::toNativeSeparators(path));
+        rememberFileLocation(path, businessConfigPathKey, businessConfigDirectoryKey);
         initializeDefaultsIfReady();
     }
 }
@@ -343,9 +394,11 @@ void BusinessHexDecoderDialog::chooseBusinessConfig()
 void BusinessHexDecoderDialog::chooseStructureDefinition()
 {
     const QString path = QFileDialog::getOpenFileName(this, QStringLiteral("选择结构定义 JSON"),
-        m_structurePath->text(), QStringLiteral("结构定义 JSON (*.json);;所有文件 (*)"));
+        dialogStartLocation(m_structurePath->text(), structureDefinitionDirectoryKey),
+        QStringLiteral("结构定义 JSON (*.json);;所有文件 (*)"));
     if (!path.isEmpty()) {
         m_structurePath->setText(QDir::toNativeSeparators(path));
+        rememberFileLocation(path, structureDefinitionPathKey, structureDefinitionDirectoryKey);
         initializeDefaultsIfReady();
     }
 }
@@ -360,9 +413,11 @@ void BusinessHexDecoderDialog::initializeDefaultsIfReady()
 
 void BusinessHexDecoderDialog::chooseHexFile()
 {
-    const QString path = QFileDialog::getOpenFileName(this, QStringLiteral("打开十六进制文本"), QString(),
+    const QString path = QFileDialog::getOpenFileName(this, QStringLiteral("打开十六进制文本"),
+        dialogStartLocation(QString(), hexDataDirectoryKey),
         QStringLiteral("十六进制文本 (*.hex *.txt);;所有文件 (*)"));
     if (path.isEmpty()) return;
+    rememberFileLocation(path, hexDataPathKey, hexDataDirectoryKey);
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
         QMessageBox::warning(this, QStringLiteral("无法读取文件"), file.errorString());
@@ -724,6 +779,8 @@ void BusinessHexDecoderDialog::decode()
         clearResult(error);
         return;
     }
+    rememberFileLocation(businessPath, businessConfigPathKey, businessConfigDirectoryKey);
+    rememberFileLocation(structurePath, structureDefinitionPathKey, structureDefinitionDirectoryKey);
     if (!config.object().contains(QStringLiteral("structureFingerprint")) && !m_legacyConfigAccepted) {
         const auto answer = QMessageBox::question(this, QStringLiteral("旧版业务配置"),
             QStringLiteral("此业务配置没有结构布局指纹，只能校验结构体名称和字段路径。仍要继续吗？"),
