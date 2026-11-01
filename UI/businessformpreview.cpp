@@ -94,6 +94,9 @@ QWidget *BusinessFormPreviewDialog::createEditor(const QString &, const QJsonObj
     }
     if (widget == QLatin1String("combobox")) {
         auto *combo = new QComboBox(this);
+        combo->setObjectName(QStringLiteral("businessFormPreviewCombo"));
+        combo->setStyleSheet(QStringLiteral(
+            "QComboBox#businessFormPreviewCombo { padding-top: 2px; padding-bottom: 2px; min-height: 0px; }"));
         const QJsonArray options = config.value(QStringLiteral("options")).toArray();
         int defaultIndex = -1;
         for (int i = 0; i < options.size(); ++i) {
