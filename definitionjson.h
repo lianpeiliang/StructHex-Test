@@ -10,6 +10,9 @@
 // 把 structure 转成内存中的 JSON 文档，不写磁盘；不包含用户填写的字段值。
 QJsonDocument structureDefinitionJson(const StructInfo &structure);
 
+// 为业务配置文件标记其所依据的精确结构布局；不包含文件路径，便于文件移动。
+QString structureDefinitionFingerprint(const StructInfo &structure);
+
 // 把结构定义保存到 filePath，使用 QSaveFile 写临时文件后提交；返回 true 表示保存成功。
 // error 是可选的错误输出指针：传入时，成功会清空它，失败会写入原因；传 nullptr 则不接收说明。
 bool saveStructureDefinitionJson(const StructInfo &structure, const QString &filePath,

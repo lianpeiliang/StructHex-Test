@@ -23,7 +23,6 @@ DefinitionPanel::DefinitionPanel(const QString &filePath, QWidget *parent) : QFr
 
     connect(m_fileBar, &DefinitionFileBar::loadRequested, this, &DefinitionPanel::loadRequested);
     connect(m_fileBar, &DefinitionFileBar::exportRequested, this, &DefinitionPanel::exportRequested);
-    connect(m_fileBar, &DefinitionFileBar::businessConfigRequested, this, &DefinitionPanel::businessConfigRequested);
     connect(m_selector, &StructureSelectorBar::structureSelected, this, &DefinitionPanel::structureSelected);
     connect(m_selector, &StructureSelectorBar::expandRequested, this, &DefinitionPanel::expandRequested);
     connect(m_selector, &StructureSelectorBar::collapseRequested, this, &DefinitionPanel::collapseRequested);

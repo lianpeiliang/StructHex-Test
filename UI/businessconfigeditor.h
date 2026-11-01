@@ -20,7 +20,9 @@ class BusinessConfigEditorDialog : public QDialog
 {
     Q_OBJECT
 public:
-    explicit BusinessConfigEditorDialog(const StructInfo &structure, QWidget *parent = nullptr);
+    explicit BusinessConfigEditorDialog(const StructInfo &structure,
+                                        const QString &structureDefinitionPath = QString(),
+                                        QWidget *parent = nullptr);
 
 private:
     struct FieldConfig {

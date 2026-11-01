@@ -27,13 +27,7 @@ DefinitionFileBar::DefinitionFileBar(const QString &filePath, QWidget *parent) :
     m_exportButton->setToolTip(QStringLiteral("导出当前解析的类型和布局，不包含输入值；无需填写字段值。"));
     m_exportButton->setEnabled(false);
     row->addWidget(m_exportButton);
-    m_businessConfigButton = new QPushButton(QStringLiteral("设计业务配置 JSON"), this);
-    m_businessConfigButton->setObjectName(QStringLiteral("businessConfigButton"));
-    m_businessConfigButton->setToolTip(QStringLiteral("根据当前结构体字段设计业务表单定义，不填写业务数值。"));
-    m_businessConfigButton->setEnabled(false);
-    row->addWidget(m_businessConfigButton);
     connect(m_exportButton, &QPushButton::clicked, this, &DefinitionFileBar::exportRequested);
-    connect(m_businessConfigButton, &QPushButton::clicked, this, &DefinitionFileBar::businessConfigRequested);
     connect(reloadButton, &QPushButton::clicked, this, [this] { emit loadRequested(m_filePath->text()); });
     connect(m_filePath, &QLineEdit::returnPressed, this, [this] { emit loadRequested(m_filePath->text()); });
     connect(openButton, &QPushButton::clicked, this, [this] {
@@ -50,5 +44,4 @@ DefinitionFileBar::DefinitionFileBar(const QString &filePath, QWidget *parent) :
 void DefinitionFileBar::setExportEnabled(bool enabled)
 {
     m_exportButton->setEnabled(enabled);
-    m_businessConfigButton->setEnabled(enabled);
 }

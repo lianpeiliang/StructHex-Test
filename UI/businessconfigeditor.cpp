@@ -53,8 +53,12 @@ QJsonValue numberOrString(const QString &text)
 
 } // namespace
 
-BusinessConfigEditorDialog::BusinessConfigEditorDialog(const StructInfo &structure, QWidget *parent)
-    : QDialog(parent), m_structure(structure)
+BusinessConfigEditorDialog::BusinessConfigEditorDialog(const StructInfo &structure,
+                                                       const QString &structureDefinitionPath,
+                                                       QWidget *parent)
+    : QDialog(parent), m_structure(structure),
+      m_structureDefinitionPath(structureDefinitionPath.trimmed().isEmpty()
+          ? QString() : QFileInfo(structureDefinitionPath).absoluteFilePath())
 {
     setWindowTitle(QStringLiteral("业务配置 JSON 设计器 · %1").arg(structure.name));
     resize(1120, 720);
@@ -194,7 +198,9 @@ BusinessConfigEditorDialog::BusinessConfigEditorDialog(const StructInfo &structu
     m_status = new QLabel(QStringLiteral("基于当前结构定义创建业务配置。"), this);
     m_status->setTextInteractionFlags(Qt::TextSelectableByMouse);
     root->addWidget(m_status);
-    m_structureStatus = new QLabel(QStringLiteral("原始结构定义 JSON：尚未手动选择"), this);
+    m_structureStatus = new QLabel(m_structureDefinitionPath.isEmpty()
+        ? QStringLiteral("原始结构定义 JSON：尚未手动选择")
+        : QStringLiteral("原始结构定义 JSON：%1").arg(QDir::toNativeSeparators(m_structureDefinitionPath)), this);
     m_structureStatus->setTextInteractionFlags(Qt::TextSelectableByMouse);
     root->addWidget(m_structureStatus);
     auto *open = new QPushButton(QStringLiteral("打开业务配置 JSON…"), this);
@@ -519,6 +525,7 @@ QJsonDocument BusinessConfigEditorDialog::configDocument() const
     }
     QJsonObject root{
         {QStringLiteral("struct"), m_structure.name},
+        {QStringLiteral("structureFingerprint"), structureDefinitionFingerprint(m_structure)},
         {QStringLiteral("title"), m_title->text().trimmed()},
         {QStringLiteral("layout"), QStringLiteral("form")},
         {QStringLiteral("fields"), fieldsObject}
@@ -690,6 +697,13 @@ bool BusinessConfigEditorDialog::loadConfigFile(const QString &path, QString &er
     if (!root.value(QStringLiteral("struct")).isString()
         || root.value(QStringLiteral("struct")).toString() != m_structure.name) {
         error = QStringLiteral("配置中的 struct 必须与当前结构体“%1”一致。").arg(m_structure.name);
+        return false;
+    }
+    if (root.contains(QStringLiteral("structureFingerprint"))
+        && (!root.value(QStringLiteral("structureFingerprint")).isString()
+            || root.value(QStringLiteral("structureFingerprint")).toString()
+                != structureDefinitionFingerprint(m_structure))) {
+        error = QStringLiteral("业务配置的结构布局指纹与当前结构定义不匹配。");
         return false;
     }
     if (!root.value(QStringLiteral("title")).isString()

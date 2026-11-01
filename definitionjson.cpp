@@ -6,6 +6,7 @@
 #include <QSaveFile>
 #include <QFile>
 #include <QRegularExpression>
+#include <QCryptographicHash>
 #include <QSet>
 #include <cmath>
 #include <limits>
@@ -258,6 +259,12 @@ QJsonDocument structureDefinitionJson(const StructInfo &structure)
     if (!structure.binaryEncodingIssue.isEmpty())
         root.insert(QStringLiteral("binaryEncodingIssue"), structure.binaryEncodingIssue);
     return QJsonDocument(root);
+}
+
+QString structureDefinitionFingerprint(const StructInfo &structure)
+{
+    const QByteArray bytes = structureDefinitionJson(structure).toJson(QJsonDocument::Compact);
+    return QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex());
 }
 
 bool saveStructureDefinitionJson(const StructInfo &structure, const QString &filePath, QString *error)

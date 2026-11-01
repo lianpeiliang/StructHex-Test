@@ -46,3 +46,5 @@ SOURCES += UI/businessconfigeditor.cpp
 HEADERS += UI/businessconfigeditor.h
 SOURCES += UI/businessformpreview.cpp
 HEADERS += UI/businessformpreview.h
+SOURCES += UI/businessformrunner.cpp UI/workflowlauncher.cpp
+HEADERS += UI/businessformrunner.h UI/workflowlauncher.h

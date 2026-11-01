@@ -7,7 +7,6 @@
 #include "binaryencoder.h"
 #include "binarydecoder.h"
 #include "definitionjson.h"
-#include "businessconfigeditor.h"
 
 #include <QDir>
 #include <QFile>
@@ -205,12 +204,6 @@ MainWindow::MainWindow(const QString &filePath, QWidget *parent)
     layout->addWidget(m_definitionPanel);
     connect(m_definitionPanel, &DefinitionPanel::loadRequested, this, &MainWindow::reloadDefinition);
     connect(m_definitionPanel, &DefinitionPanel::exportRequested, this, &MainWindow::exportDefinitionJson);
-    connect(m_definitionPanel, &DefinitionPanel::businessConfigRequested, this, [this] {
-        if (m_session.hasStructure()) {
-            BusinessConfigEditorDialog dialog(m_session.structure(), this);
-            dialog.exec();
-        }
-    });
     connect(m_definitionPanel, &DefinitionPanel::structureSelected, this, [this](int index) {
         m_session.selectStructure(index);
         showSelectedStructure();
