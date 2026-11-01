@@ -85,13 +85,30 @@ BusinessConfigEditorDialog::BusinessConfigEditorDialog(const StructInfo &structu
     editorLayout->addLayout(displayForm);
 
     auto *controlGroup = new QGroupBox(QStringLiteral("UI 控件配置"), editor);
-    auto *form = new QFormLayout(controlGroup);
+    auto *controlLayout = new QVBoxLayout(controlGroup);
+    controlLayout->setSpacing(6);
+    const auto addPropertyRow = [this, controlGroup, controlLayout](const QString &key,
+                                                                   const QString &caption,
+                                                                   QWidget *field) {
+        auto *row = new QWidget(controlGroup);
+        auto *rowLayout = new QHBoxLayout(row);
+        rowLayout->setContentsMargins(0, 0, 0, 0);
+        rowLayout->setSpacing(8);
+        auto *label = new QLabel(caption, row);
+        label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        label->setMinimumWidth(68);
+        rowLayout->addWidget(label);
+        rowLayout->addWidget(field, 1);
+        controlLayout->addWidget(row);
+        m_propertyRows.insert(key, row);
+        return row;
+    };
     m_widget = new QComboBox(editor);
     m_widget->addItems(QStringList() << QStringLiteral("spinbox") << QStringLiteral("doublespinbox")
                                      << QStringLiteral("combobox") << QStringLiteral("checkbox")
                                      << QStringLiteral("lineedit") << QStringLiteral("group")
                                      << QStringLiteral("readonly"));
-    form->addRow(QStringLiteral("UI控件："), m_widget);
+    addPropertyRow(QStringLiteral("widget"), QStringLiteral("UI控件："), m_widget);
     connect(m_widget, &QComboBox::currentTextChanged, this, [this](const QString &newWidget) {
         if (m_selectedIndex >= 0 && m_selectedIndex < m_fields.size()) {
             FieldConfig &field = m_fields[m_selectedIndex];
@@ -111,21 +128,18 @@ BusinessConfigEditorDialog::BusinessConfigEditorDialog(const StructInfo &structu
         updatePropertyVisibility();
     });
     m_unit = new QLineEdit(editor);
-    form->addRow(QStringLiteral("单位："), m_unit);
-    m_unitLabel = form->labelForField(m_unit);
+    addPropertyRow(QStringLiteral("unit"), QStringLiteral("单位："), m_unit);
     m_minimum = new QLineEdit(editor);
-    form->addRow(QStringLiteral("最小值："), m_minimum);
-    m_minimumLabel = form->labelForField(m_minimum);
+    addPropertyRow(QStringLiteral("minimum"), QStringLiteral("最小值："), m_minimum);
     m_maximum = new QLineEdit(editor);
-    form->addRow(QStringLiteral("最大值："), m_maximum);
-    m_maximumLabel = form->labelForField(m_maximum);
+    addPropertyRow(QStringLiteral("maximum"), QStringLiteral("最大值："), m_maximum);
     auto *rangeHint = new QLabel(
         QStringLiteral("最小值和最大值按界面显示值填写，不是结构体原始值。例：m_Start 填 -90～90°、换算比例 0.01，对应原始值 -9000～9000。"),
         editor);
     rangeHint->setWordWrap(true);
     rangeHint->setObjectName(QStringLiteral("businessConfigRangeHint"));
     m_rangeHint = rangeHint;
-    form->addRow(rangeHint);
+    controlLayout->addWidget(rangeHint);
     m_scale = new QLineEdit(editor);
     auto *conversionGroup = new QGroupBox(QStringLiteral("数值换算"), editor);
     m_conversionGroup = conversionGroup;
@@ -142,11 +156,9 @@ BusinessConfigEditorDialog::BusinessConfigEditorDialog(const StructInfo &structu
     scaleLayout->addWidget(scaleHint);
     conversionForm->addRow(QStringLiteral("换算比例："), scalePanel);
     m_decimals = new QLineEdit(editor);
-    form->addRow(QStringLiteral("小数位数："), m_decimals);
-    m_decimalsLabel = form->labelForField(m_decimals);
+    addPropertyRow(QStringLiteral("decimals"), QStringLiteral("小数位数："), m_decimals);
     m_defaultValue = new QLineEdit(editor);
-    form->addRow(QStringLiteral("默认值："), m_defaultValue);
-    m_defaultLabel = form->labelForField(m_defaultValue);
+    addPropertyRow(QStringLiteral("default"), QStringLiteral("默认值："), m_defaultValue);
     auto *optionsPanel = new QWidget(editor);
     m_optionsPanel = optionsPanel;
     auto *optionsLayout = new QVBoxLayout(optionsPanel);
@@ -164,14 +176,13 @@ BusinessConfigEditorDialog::BusinessConfigEditorDialog(const StructInfo &structu
     optionButtons->addWidget(removeOption);
     optionButtons->addStretch();
     optionsLayout->addLayout(optionButtons);
-    form->addRow(QStringLiteral("下拉选项："), optionsPanel);
-    m_optionsLabel = form->labelForField(optionsPanel);
+    addPropertyRow(QStringLiteral("options"), QStringLiteral("下拉选项："), optionsPanel);
     connect(addOption, &QPushButton::clicked, this, &BusinessConfigEditorDialog::addOptionRow);
     connect(removeOption, &QPushButton::clicked, this, &BusinessConfigEditorDialog::removeOptionRow);
     auto *hint = new QLabel(QStringLiteral("默认值也按界面显示值填写。"), editor);
     m_defaultHint = hint;
     hint->setWordWrap(true);
-    form->addRow(hint);
+    controlLayout->addWidget(hint);
     editorLayout->addWidget(controlGroup, 1);
     editorLayout->addWidget(conversionGroup);
     body->addWidget(editorScroll, 2);
@@ -283,21 +294,15 @@ void BusinessConfigEditorDialog::updatePropertyVisibility()
     const bool valueInput = numericInput || comboInput || widget == QLatin1String("checkbox")
         || widget == QLatin1String("lineedit");
 
-    m_unit->setVisible(selected && numericInput);
-    m_unitLabel->setVisible(selected && numericInput);
-    m_minimum->setVisible(selected && numericInput);
-    m_minimumLabel->setVisible(selected && numericInput);
-    m_maximum->setVisible(selected && numericInput);
-    m_maximumLabel->setVisible(selected && numericInput);
+    m_propertyRows.value(QStringLiteral("unit"))->setVisible(selected && numericInput);
+    m_propertyRows.value(QStringLiteral("minimum"))->setVisible(selected && numericInput);
+    m_propertyRows.value(QStringLiteral("maximum"))->setVisible(selected && numericInput);
     m_rangeHint->setVisible(selected && numericInput);
     m_conversionGroup->setVisible(selected && numericInput);
-    m_decimals->setVisible(selected && realInput);
-    m_decimalsLabel->setVisible(selected && realInput);
-    m_defaultValue->setVisible(selected && valueInput);
-    m_defaultLabel->setVisible(selected && valueInput);
+    m_propertyRows.value(QStringLiteral("decimals"))->setVisible(selected && realInput);
+    m_propertyRows.value(QStringLiteral("default"))->setVisible(selected && valueInput);
     m_defaultHint->setVisible(selected && valueInput);
-    m_optionsPanel->setVisible(selected && comboInput);
-    m_optionsLabel->setVisible(selected && comboInput);
+    m_propertyRows.value(QStringLiteral("options"))->setVisible(selected && comboInput);
 }
 
 void BusinessConfigEditorDialog::saveField()

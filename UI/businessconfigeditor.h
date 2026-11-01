@@ -3,6 +3,7 @@
 
 #include "headerparser.h"
 #include <QDialog>
+#include <QHash>
 #include <QJsonDocument>
 #include <QVector>
 
@@ -55,6 +56,7 @@ private:
     StructInfo m_structure;
     QVector<FieldConfig> m_defaultFields;
     QVector<FieldConfig> m_fields;
+    QHash<QString, QWidget *> m_propertyRows;
     QString m_currentConfigPath;
     QTreeWidget *m_fieldTree = nullptr;
     QLabel *m_status = nullptr;
@@ -62,19 +64,13 @@ private:
     QLineEdit *m_title = nullptr;
     QLineEdit *m_label = nullptr;
     QComboBox *m_widget = nullptr;
-    QWidget *m_unitLabel = nullptr;
     QLineEdit *m_unit = nullptr;
-    QWidget *m_minimumLabel = nullptr;
     QLineEdit *m_minimum = nullptr;
-    QWidget *m_maximumLabel = nullptr;
     QLineEdit *m_maximum = nullptr;
     QWidget *m_rangeHint = nullptr;
     QLineEdit *m_scale = nullptr;
-    QWidget *m_decimalsLabel = nullptr;
     QLineEdit *m_decimals = nullptr;
-    QWidget *m_defaultLabel = nullptr;
     QLineEdit *m_defaultValue = nullptr;
-    QWidget *m_optionsLabel = nullptr;
     QWidget *m_optionsPanel = nullptr;
     QTableWidget *m_options = nullptr;
     QWidget *m_defaultHint = nullptr;
