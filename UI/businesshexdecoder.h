@@ -27,6 +27,7 @@ private:
     void chooseBusinessConfig();
     void chooseStructureDefinition();
     void chooseHexFile();
+    void initializeDefaultsIfReady();
     void decode();
     void clearResult(const QString &message);
     void rebuildBusinessForm(const QJsonObject &fields, const StructInfo &structure);
@@ -53,6 +54,7 @@ private:
     QJsonDocument m_activeConfig;
     QByteArray m_currentBytes;
     bool m_populatingForm = false;
+    bool m_hexGeneratedByForm = false;
     bool m_legacyConfigAccepted = false;
 };
 

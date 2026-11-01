@@ -222,8 +222,20 @@ BusinessHexDecoderDialog::BusinessHexDecoderDialog(QWidget *parent) : QDialog(pa
     layout->addLayout(form);
     connect(businessBrowse, &QPushButton::clicked, this, &BusinessHexDecoderDialog::chooseBusinessConfig);
     connect(structureBrowse, &QPushButton::clicked, this, &BusinessHexDecoderDialog::chooseStructureDefinition);
-    connect(m_businessPath, &QLineEdit::textChanged, this, [this] { m_legacyConfigAccepted = false; clearResult(QStringLiteral("文件路径已更改，请重新解析。")); });
-    connect(m_structurePath, &QLineEdit::textChanged, this, [this] { m_legacyConfigAccepted = false; clearResult(QStringLiteral("文件路径已更改，请重新解析。")); });
+    const auto pathsChanged = [this] {
+        m_legacyConfigAccepted = false;
+        if (m_hexGeneratedByForm) {
+            const QSignalBlocker blocker(m_hexInput);
+            m_hexInput->clear();
+            m_copyHexButton->setEnabled(false);
+            m_hexGeneratedByForm = false;
+        }
+        clearResult(QStringLiteral("文件路径已更改，请重新解析。"));
+    };
+    connect(m_businessPath, &QLineEdit::textChanged, this, pathsChanged);
+    connect(m_structurePath, &QLineEdit::textChanged, this, pathsChanged);
+    connect(m_businessPath, &QLineEdit::editingFinished, this, &BusinessHexDecoderDialog::initializeDefaultsIfReady);
+    connect(m_structurePath, &QLineEdit::editingFinished, this, &BusinessHexDecoderDialog::initializeDefaultsIfReady);
 
     auto *workArea = new QSplitter(Qt::Horizontal, this);
     workArea->setObjectName(QStringLiteral("businessHexWorkArea"));
@@ -249,6 +261,7 @@ BusinessHexDecoderDialog::BusinessHexDecoderDialog(QWidget *parent) : QDialog(pa
     leftLayout->addWidget(m_hexInput);
     connect(hexBrowse, &QPushButton::clicked, this, &BusinessHexDecoderDialog::chooseHexFile);
     connect(m_hexInput, &QPlainTextEdit::textChanged, this, [this] {
+        m_hexGeneratedByForm = false;
         m_copyHexButton->setEnabled(!m_hexInput->toPlainText().trimmed().isEmpty());
         clearResult(QStringLiteral("输入已更新，请重新解析。"));
     });
@@ -321,14 +334,28 @@ void BusinessHexDecoderDialog::chooseBusinessConfig()
 {
     const QString path = QFileDialog::getOpenFileName(this, QStringLiteral("选择业务配置 JSON"),
         m_businessPath->text(), QStringLiteral("业务配置 JSON (*.json);;所有文件 (*)"));
-    if (!path.isEmpty()) m_businessPath->setText(QDir::toNativeSeparators(path));
+    if (!path.isEmpty()) {
+        m_businessPath->setText(QDir::toNativeSeparators(path));
+        initializeDefaultsIfReady();
+    }
 }
 
 void BusinessHexDecoderDialog::chooseStructureDefinition()
 {
     const QString path = QFileDialog::getOpenFileName(this, QStringLiteral("选择结构定义 JSON"),
         m_structurePath->text(), QStringLiteral("结构定义 JSON (*.json);;所有文件 (*)"));
-    if (!path.isEmpty()) m_structurePath->setText(QDir::toNativeSeparators(path));
+    if (!path.isEmpty()) {
+        m_structurePath->setText(QDir::toNativeSeparators(path));
+        initializeDefaultsIfReady();
+    }
+}
+
+void BusinessHexDecoderDialog::initializeDefaultsIfReady()
+{
+    if (!m_businessPath->text().trimmed().isEmpty()
+        && !m_structurePath->text().trimmed().isEmpty()
+        && m_hexInput->toPlainText().trimmed().isEmpty())
+        decode();
 }
 
 void BusinessHexDecoderDialog::chooseHexFile()
@@ -386,6 +413,8 @@ void BusinessHexDecoderDialog::rebuildBusinessForm(const QJsonObject &fields, co
             auto *spin = new QSpinBox(m_formContent);
             spin->setRange(int(configuredNumber(config, QStringLiteral("min"), 0)),
                            int(configuredNumber(config, QStringLiteral("max"), 99)));
+            if (config.contains(QStringLiteral("default")))
+                spin->setValue(int(configuredNumber(config, QStringLiteral("default"), 0)));
             editor = spin;
             connect(spin, QOverload<int>::of(&QSpinBox::valueChanged), this,
                     [this] { businessFormEdited(); });
@@ -396,6 +425,8 @@ void BusinessHexDecoderDialog::rebuildBusinessForm(const QJsonObject &fields, co
             spin->setSingleStep(std::pow(10.0, -decimals));
             spin->setRange(configuredNumber(config, QStringLiteral("min"), -999999.0),
                            configuredNumber(config, QStringLiteral("max"), 999999.0));
+            if (config.contains(QStringLiteral("default")))
+                spin->setValue(configuredNumber(config, QStringLiteral("default"), 0.0));
             editor = spin;
             connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
                     [this] { businessFormEdited(); });
@@ -410,15 +441,29 @@ void BusinessHexDecoderDialog::rebuildBusinessForm(const QJsonObject &fields, co
                 combo->addItem(option.value(QStringLiteral("label")).toString(),
                                option.value(QStringLiteral("value")).toVariant());
             }
+            if (config.contains(QStringLiteral("default"))) {
+                const QString defaultText = jsonValueText(config.value(QStringLiteral("default")));
+                for (int index = 0; index < combo->count(); ++index) {
+                    if (optionMatches(QJsonValue::fromVariant(combo->itemData(index)), defaultText)) {
+                        combo->setCurrentIndex(index);
+                        break;
+                    }
+                }
+            }
             editor = combo;
             connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
                     [this] { businessFormEdited(); });
         } else if (widgetType == QLatin1String("checkbox")) {
             auto *check = new QCheckBox(m_formContent);
+            const QJsonValue defaultValue = config.value(QStringLiteral("default"));
+            check->setChecked(defaultValue.isBool() ? defaultValue.toBool()
+                : defaultValue.isDouble() ? defaultValue.toDouble() != 0.0
+                : defaultValue.toString().compare(QLatin1String("true"), Qt::CaseInsensitive) == 0);
             editor = check;
             connect(check, &QCheckBox::toggled, this, [this] { businessFormEdited(); });
         } else if (widgetType == QLatin1String("lineedit")) {
             auto *line = new QLineEdit(m_formContent);
+            line->setText(jsonValueText(config.value(QStringLiteral("default"))));
             editor = line;
             connect(line, &QLineEdit::textChanged, this, [this] { businessFormEdited(); });
         } else {
@@ -523,7 +568,7 @@ bool BusinessHexDecoderDialog::collectBusinessValues(const QString &fieldPath,
     values.clear();
     for (auto it = m_fieldWidgets.constBegin(); it != m_fieldWidgets.constEnd(); ++it) {
         const QString path = it.key();
-        if (path != fieldPath)
+        if (!fieldPath.isEmpty() && path != fieldPath)
             continue;
         QWidget *editor = it.value();
         if (!isEditableField(m_fieldInfo.value(path)))
@@ -689,12 +734,46 @@ void BusinessHexDecoderDialog::decode()
         }
         m_legacyConfigAccepted = true;
     }
-    const BinaryResult hex = parseHexBytes(m_hexInput->toPlainText());
-    if (!hex.success) {
-        clearResult(hex.diagnostics.join(QLatin1Char('\n')));
-        return;
+    rebuildBusinessForm(config.object().value(QStringLiteral("fields")).toObject(), structure);
+    const bool generatedDefaults = m_hexInput->toPlainText().trimmed().isEmpty();
+    QByteArray inputBytes;
+    if (generatedDefaults) {
+        if (structure.size <= 0 || structure.size > 1024 * 1024) {
+            clearResult(QStringLiteral("结构体大小无效或超过默认 HEX 生成上限（1 MiB）。"));
+            return;
+        }
+        QHash<QString, QString> defaultValues;
+        if (!collectBusinessValues(QString(), defaultValues, error)) {
+            clearResult(QStringLiteral("无法读取业务表单默认值：%1").arg(error));
+            return;
+        }
+        const QByteArray zeroBase(int(structure.size), '\0');
+        const BinaryResult generated = encodeStructure(structure, defaultValues, zeroBase);
+        if (!generated.success) {
+            clearResult(QStringLiteral("无法根据默认值生成 HEX：\n%1")
+                        .arg(generated.diagnostics.join(QLatin1Char('\n'))));
+            return;
+        }
+        inputBytes = generated.bytes;
+        if (m_byteOrder->currentIndex() != 0) {
+            const QSignalBlocker blocker(m_byteOrder);
+            m_byteOrder->setCurrentIndex(0);
+        }
+        {
+            const QSignalBlocker blocker(m_hexInput);
+            m_hexInput->setPlainText(QString::fromLatin1(inputBytes.toHex(' ').toUpper()));
+        }
+        m_copyHexButton->setEnabled(true);
+        m_hexGeneratedByForm = true;
+    } else {
+        const BinaryResult hex = parseHexBytes(m_hexInput->toPlainText());
+        if (!hex.success) {
+            clearResult(hex.diagnostics.join(QLatin1Char('\n')));
+            return;
+        }
+        inputBytes = hex.bytes;
     }
-    const DecodeResult decoded = decodeStructure(structure, hex.bytes,
+    const DecodeResult decoded = decodeStructure(structure, inputBytes,
         m_byteOrder->currentIndex() == 0 ? BinaryByteOrder::LittleEndian : BinaryByteOrder::BigEndian);
     if (!decoded.success) {
         clearResult(decoded.diagnostics.join(QLatin1Char('\n')));
@@ -702,15 +781,19 @@ void BusinessHexDecoderDialog::decode()
     }
     m_activeStructure = structure;
     m_activeConfig = config;
-    m_currentBytes = hex.bytes;
-    rebuildBusinessForm(config.object().value(QStringLiteral("fields")).toObject(), structure);
+    m_currentBytes = inputBytes;
     populateBusinessForm(decoded);
     renderResults(decoded, structure, config.object());
     if (m_byteOrder->currentIndex() == 0) {
-        m_status->setText(QStringLiteral("解析成功：%1 字节。右侧表单可编辑，修改后会自动重新编码，并同步刷新左侧解析结果。")
-                          .arg(hex.bytes.size()));
+        if (generatedDefaults) {
+            m_status->setText(QStringLiteral("已根据业务表单默认值生成 %1 字节 HEX，并显示字段映射。只读字段、数组和填充区从 0 开始；修改右侧表单会自动更新 HEX。")
+                              .arg(inputBytes.size()));
+        } else {
+            m_status->setText(QStringLiteral("解析成功：%1 字节。右侧表单可编辑，修改后会自动重新编码，并同步刷新左侧解析结果。")
+                              .arg(inputBytes.size()));
+        }
     } else {
         m_status->setText(QStringLiteral("解析成功：%1 字节。大端结果可查看；当前仅支持在小端模式下通过业务表单重新编码。")
-                          .arg(hex.bytes.size()));
+                          .arg(inputBytes.size()));
     }
 }
