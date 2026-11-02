@@ -348,14 +348,23 @@ JSON 导入检查使用 `tests/json-import-tests.pro`，运行 `json-import-test
 
 同一检查还覆盖十六进制文件导出/导入往返、导入后继续编辑、头文件与 JSON 两种定义来源、中文文件名、UTF-8 BOM、CRLF、读取失败、取消选择、空文件/非法内容/长度错误/超限文件时保留原值，以及布尔字段同步和非有限值拒绝。
 
-## 启动错误：0xC0000135
+## 易错点：启动时退出码 0xC0000135
 
-退出码 `-1073741515`（`0xC0000135`）表示找不到运行所需的 DLL。请检查运行环境 PATH：
+如果 Qt Creator 的应用程序输出显示程序刚启动就异常结束，调试器日志显示 `During startup program exited with code 0xC0000135`（十进制 `-1073741515`），通常表示 Windows 加载程序时找不到某个依赖 DLL，程序尚未运行到界面初始化代码。
 
-- 包含 `D:/msys64/mingw64/bin`，并放在旧版 MinGW 运行库目录前面。
-- 包含所选 Qt 版本的 `bin` 目录；Qt Creator 的 Kit 会自动配置 Qt 路径。
+本项目的 `StructHexCore.dll` 动态依赖 libclang。qmake 链接 `D:/msys64/mingw64/lib/libclang.dll.a` 只解决链接阶段，不会自动把运行时的 `libclang.dll` 加入 DLL 搜索路径。即使 PATH 已包含 Qt 和 Qt 自带的 MinGW 目录，仍需包含 libclang 所在目录：
 
-Qt Creator 中的配置方法见上文“在 Qt Creator 中运行”。仅链接 `libclang.dll.a` 不会自动配置运行时的 DLL 搜索路径。
+```text
+D:\msys64\mingw64\bin
+```
+
+在 Qt Creator 的 **项目 → Run → Run Environment → 详情 → 批量编辑** 中，将 PATH 设置为以下形式，并保留 `${PATH}`，不要覆盖已有路径：
+
+```text
+PATH=D:\msys64\mingw64\bin;${PATH}
+```
+
+将该目录放在 Qt Creator Kit 的 MinGW 运行库目录前面，避免加载到其他 MinGW 安装中的同名运行库。Qt 的 `bin` 目录和 Kit 的 MinGW `bin` 目录仍需保留；Qt Creator 通常会通过所选 Kit 配置它们。配置后重新运行程序。如果仍报 `0xC0000135`，继续检查 `StructHexCore.dll` 的其他依赖 DLL 是否都能从 PATH 或程序目录找到。
 
 ## 生成 Windows 便携压缩包
 
