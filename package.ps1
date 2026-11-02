@@ -38,6 +38,7 @@ try {
     } finally { Pop-Location }
 
     Copy-Item -LiteralPath (Join-Path $buildDir 'StructHex.exe') -Destination $appDir
+    Copy-Item -LiteralPath (Join-Path $buildDir 'StructHexCore.dll') -Destination $appDir
     Write-Host 'Deploying Qt...'
     # DLL 运行库由后续扫描统一从 MSYS2 复制，避免混入旧版 libstdc++。
     Invoke-Checked (Join-Path $qtBin 'windeployqt.exe') @(

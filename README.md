@@ -8,13 +8,14 @@ StructHex 是一个使用 qmake（`.pro`）构建的 Qt Widgets 结构体与业�
 
 主窗口使用紫色自定义标题栏，右侧提供圆圈问号帮助图标、最小化、最大化/还原和关闭按钮。点击帮助图标或按 F1 打开使用帮助，包含功能概览、数据流程图、格式与限制；窗口可调整大小，内容支持滚动，按 Esc 或点击“关闭”退出。帮助可与主界面同时查看，重复点击会激活已有窗口。Windows 下可拖动标题区域、双击最大化/还原、拖动边缘和四角缩放，并沿用系统的贴边吸附；最大化使用当前显示器的工作区，保留任务栏。窗口最小尺寸为 1040 × 640。窗口操作检查使用 `tests/window-tests.pro`，需在 Windows 桌面环境运行。
 
-界面相关的 C++ 源码与头文件统一放在 `UI/` 目录；`main.cpp` 是程序入口，解析、校验、编解码和 JSON 模块保留在根目录，样式及图标资源放在 `assets/`。
+界面相关的 C++ 源码与头文件统一放在 `UI/` 目录；`main.cpp` 是程序入口。结构解析、字段校验、编解码、JSON 处理、业务配置校验、业务值转换和结构会话由 Qt Core 动态库 `StructHexCore.dll` 提供，QWidget 程序通过公共头文件调用；界面层继续负责控件创建、输入采集、结果展示和交互。这样后续的 QML 界面可以复用同一业务库。
 
 ## 项目文件
 
 | 文件 | 用途 |
 | --- | --- |
-| `StructHex.pro` | Qt 项目配置及 libclang 链接配置 |
+| `StructHex.pro` | QWidget 应用项目配置；构建时先生成并链接核心动态库 |
+| `StructHexCore.pro` | Qt Core 动态库项目，包含不依赖 Qt Widgets 的业务及数据处理接口 |
 | `main.cpp` | 创建 QApplication，启动窗口 |
 | `UI/mainwindow.h / .cpp` | 协调结构定义加载、字段编辑区、操作按钮及解析诊断 |
 | `UI/workflowlauncher.h / .cpp` | 启动工作台，分别进入结构定义、表单设计和表单运行流程 |
@@ -24,7 +25,8 @@ StructHex 是一个使用 qmake（`.pro`）构建的 Qt Widgets 结构体与业�
 | `UI/businessconfigeditor.h / .cpp` | 根据当前结构字段编辑业务表单元数据，并导出业务配置 JSON |
 | `UI/businessformrunner.h / .cpp` | 手动选择业务配置和结构定义 JSON，校验后启动运行表单 |
 | `UI/businesshexdecoder.h / .cpp` | 联合结构定义和业务配置解析十六进制，嵌入可编辑业务表单并同步刷新解析结果 |
-| `businessconfigutils.h / .cpp` | 统一加载和校验业务配置 JSON，检查结构体名称、字段路径及布局指纹 |
+| `businessconfigutils.h / .cpp` | 核心库中的业务配置加载和校验，检查结构体名称、字段路径及布局指纹 |
+| `businesscodec.h / .cpp` | 核心库中的业务数值解析、选项匹配和业务显示值转换规则 |
 | `UI/structureselectorbar.h / .cpp` | 结构体候选刷新、选择和展开/折叠操作 |
 | `UI/framelesswindow.h / .cpp` | 自定义标题栏、窗口按钮及 Windows 原生拖动、缩放、工作区处理 |
 | `UI/hexdialogs.h / .cpp` | 十六进制预览、复制/导出、解析与粘贴导入弹窗及输入记忆 |

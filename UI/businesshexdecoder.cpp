@@ -1,6 +1,7 @@
 #include "businesshexdecoder.h"
 
 #include "binarydecoder.h"
+#include "businesscodec.h"
 #include "businessconfigutils.h"
 #include "definitionjson.h"
 #include "fieldvalue.h"
@@ -69,35 +70,6 @@ QString byteOffset(qint64 bits)
     return QStringLiteral("%1 bit").arg(bits);
 }
 
-bool parseNumber(const QString &text, long double &number)
-{
-    const QString value = text.trimmed();
-    if (value.isEmpty())
-        return false;
-    if (value.compare(QLatin1String("true"), Qt::CaseInsensitive) == 0) {
-        number = 1.0L;
-        return true;
-    }
-    if (value.compare(QLatin1String("false"), Qt::CaseInsensitive) == 0) {
-        number = 0.0L;
-        return true;
-    }
-    bool ok = false;
-    if (value.startsWith(QLatin1String("-0x"), Qt::CaseInsensitive)) {
-        const qulonglong magnitude = value.mid(3).toULongLong(&ok, 16);
-        if (ok) number = -static_cast<long double>(magnitude);
-        return ok;
-    }
-    if (value.startsWith(QLatin1String("0x"), Qt::CaseInsensitive)) {
-        const qulonglong parsed = value.mid(2).toULongLong(&ok, 16);
-        if (ok) number = static_cast<long double>(parsed);
-        return ok;
-    }
-    const double parsed = value.toDouble(&ok);
-    if (ok) number = static_cast<long double>(parsed);
-    return ok;
-}
-
 QString jsonValueText(const QJsonValue &value)
 {
     if (value.isString()) return value.toString();
@@ -136,57 +108,6 @@ void appendDecodedValues(const QVector<DecodedField> &fields, QHash<QString, QSt
     }
 }
 
-bool optionMatches(const QJsonValue &optionValue, const QString &rawValue)
-{
-    const QString optionText = jsonValueText(optionValue);
-    long double optionNumber = 0.0L, rawNumber = 0.0L;
-    if (parseNumber(optionText, optionNumber) && parseNumber(rawValue, rawNumber))
-        return optionNumber == rawNumber;
-    return optionText.compare(rawValue, Qt::CaseInsensitive) == 0;
-}
-
-QString businessValue(const DecodedField &decoded, const QJsonObject &config, QString &extraNote)
-{
-    const QString widget = config.value(QStringLiteral("widget")).toString();
-    const QString raw = decoded.value;
-    if (raw == QLatin1String("分组") || raw == QLatin1String("原始字节"))
-        return raw;
-
-    if (widget == QLatin1String("combobox")) {
-        const QJsonArray options = config.value(QStringLiteral("options")).toArray();
-        for (const QJsonValue &value : options) {
-            const QJsonObject option = value.toObject();
-            if (optionMatches(option.value(QStringLiteral("value")), raw))
-                return option.value(QStringLiteral("label")).toString();
-        }
-        extraNote = QStringLiteral("该原始值未配置对应的下拉选项。 ");
-        return QStringLiteral("未配置选项（%1）").arg(raw);
-    }
-
-    if (widget == QLatin1String("checkbox")) {
-        return (raw == QLatin1String("true") || raw == QLatin1String("1"))
-            ? QStringLiteral("已选中") : QStringLiteral("未选中");
-    }
-
-    if (widget == QLatin1String("spinbox") || widget == QLatin1String("doublespinbox")) {
-        long double rawNumber = 0.0L;
-        if (!parseNumber(raw, rawNumber))
-            return raw;
-        const QJsonValue scaleValue = config.value(QStringLiteral("scale"));
-        const double scale = scaleValue.isDouble() ? scaleValue.toDouble() : scaleValue.toString().toDouble();
-        const long double display = rawNumber * (scale > 0.0 && std::isfinite(scale) ? scale : 1.0);
-        const int decimals = config.value(QStringLiteral("decimals")).toInt(-1);
-        QString text = decimals >= 0
-            ? QString::number(static_cast<double>(display), 'f', decimals)
-            : QString::number(static_cast<double>(display), 'g', 15);
-        const QString unit = config.value(QStringLiteral("unit")).toString().trimmed();
-        if (!unit.isEmpty()) text += QLatin1Char(' ') + unit;
-        return text;
-    }
-
-    return raw;
-}
-
 void appendResults(QTreeWidgetItem *parent, const QVector<DecodedField> &fields,
                    const QJsonObject &businessFields)
 {
@@ -195,7 +116,7 @@ void appendResults(QTreeWidgetItem *parent, const QVector<DecodedField> &fields,
         const QString configuredLabel = config.value(QStringLiteral("label")).toString().trimmed();
         const QString label = configuredLabel.isEmpty() ? field.name : configuredLabel;
         QString extraNote;
-        const QString display = businessValue(field, config, extraNote);
+        const QString display = businessDisplayValue(field.value, config, extraNote);
         const QString rawBytes = QString::fromLatin1(field.bytes.left(32).toHex(' ').toUpper())
             + (field.bytes.size() > 32 ? QStringLiteral(" …（共 %1 字节）").arg(field.bytes.size()) : QString());
         QString note = field.note;
@@ -712,7 +633,7 @@ void BusinessHexDecoderDialog::rebuildBusinessForm(const QJsonObject &fields, co
             if (config.contains(QStringLiteral("default"))) {
                 const QString defaultText = jsonValueText(config.value(QStringLiteral("default")));
                 for (int index = 0; index < combo->count(); ++index) {
-                    if (optionMatches(QJsonValue::fromVariant(combo->itemData(index)), defaultText)) {
+                    if (businessOptionMatches(QJsonValue::fromVariant(combo->itemData(index)), defaultText)) {
                         combo->setCurrentIndex(index);
                         break;
                     }
@@ -769,7 +690,7 @@ void BusinessHexDecoderDialog::populateBusinessForm(const DecodeResult &decoded)
 
         if (widgetType == QLatin1String("spinbox")) {
             long double rawNumber = 0.0L;
-            if (parseNumber(raw, rawNumber)) {
+            if (parseBusinessNumber(raw, rawNumber)) {
                 QSpinBox *spin = qobject_cast<QSpinBox *>(editor);
                 const long double displayed = std::round(rawNumber * scale);
                 const int target = displayed < std::numeric_limits<int>::min()
@@ -789,7 +710,7 @@ void BusinessHexDecoderDialog::populateBusinessForm(const DecodeResult &decoded)
             }
         } else if (widgetType == QLatin1String("doublespinbox")) {
             long double rawNumber = 0.0L;
-            if (parseNumber(raw, rawNumber)) {
+            if (parseBusinessNumber(raw, rawNumber)) {
                 QDoubleSpinBox *spin = qobject_cast<QDoubleSpinBox *>(editor);
                 const double target = double(rawNumber * scale);
                 if (target < spin->minimum() || target > spin->maximum()) {
@@ -805,7 +726,7 @@ void BusinessHexDecoderDialog::populateBusinessForm(const DecodeResult &decoded)
             QComboBox *combo = qobject_cast<QComboBox *>(editor);
             int selected = -1;
             for (int index = 0; index < combo->count(); ++index) {
-                if (optionMatches(combo->itemData(index).isNull()
+                if (businessOptionMatches(combo->itemData(index).isNull()
                                       ? QJsonValue() : QJsonValue::fromVariant(combo->itemData(index)), raw)) {
                     selected = index;
                     break;
