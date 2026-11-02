@@ -1,6 +1,7 @@
 #ifndef BUSINESSCONFIGEDITOR_H
 #define BUSINESSCONFIGEDITOR_H
 
+#include "business/businessformservice.h"
 #include "headerparser.h"
 #include <QDialog>
 #include <QHash>
@@ -25,19 +26,7 @@ public:
                                         QWidget *parent = nullptr);
 
 private:
-    struct FieldConfig {
-        QString path;
-        QString label;
-        QString widget;
-        QString unit;
-        QString minimum;
-        QString maximum;
-        QString scale;
-        QString decimals;
-        QString defaultValue;
-        bool defaultIsString = false;
-        QString options = QStringLiteral("[]");
-    };
+    typedef BusinessFieldConfig FieldConfig;
 
     void addFields(const QVector<FieldInfo> &fields, const QString &parentPath,
                    QTreeWidgetItem *parentItem);
@@ -53,7 +42,6 @@ private:
     bool loadConfigFile(const QString &path, QString &error);
     void addOptionRow();
     void removeOptionRow();
-    bool validateField(const FieldConfig &field, QString &error) const;
     QJsonDocument configDocument() const;
 
     StructInfo m_structure;

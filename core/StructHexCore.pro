@@ -9,9 +9,11 @@ CONFIG -= app_bundle debug_and_release
 INCLUDEPATH += $$PWD
 
 SOURCES += headerparser.cpp fieldvalue.cpp binaryencoder.cpp binarydecoder.cpp
-SOURCES += definitionjson.cpp businessconfigutils.cpp businesscodec.cpp structuresession.cpp
+SOURCES += definitionjson.cpp structuresession.cpp
+SOURCES += business/businessconfigutils.cpp business/businesscodec.cpp business/businessformservice.cpp
 HEADERS += headerparser.h fieldvalue.h binaryencoder.h binarydecoder.h
-HEADERS += definitionjson.h businessconfigutils.h businesscodec.h structuresession.h
+HEADERS += definitionjson.h structuresession.h
+HEADERS += business/businessconfigutils.h business/businesscodec.h business/businessformservice.h
 
 isEmpty(LIBCLANG_ROOT): LIBCLANG_ROOT = D:/msys64/mingw64
 !exists($$LIBCLANG_ROOT/include/clang-c/Index.h): error("Cannot find clang-c/Index.h; set LIBCLANG_ROOT")

@@ -42,8 +42,6 @@ private:
     void businessFormEdited();
     void renderResults(const DecodeResult &decoded, const StructInfo &structure,
                        const QJsonObject &config);
-    bool collectBusinessValues(const QString &fieldPath, QHash<QString, QString> &values,
-                               QString &error) const;
 
     QLineEdit *m_businessPath = nullptr;
     QLineEdit *m_structurePath = nullptr;

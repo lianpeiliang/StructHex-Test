@@ -1,8 +1,9 @@
 #include "businesshexdecoder.h"
 
 #include "binarydecoder.h"
-#include "businesscodec.h"
-#include "businessconfigutils.h"
+#include "business/businesscodec.h"
+#include "business/businessconfigutils.h"
+#include "business/businessformservice.h"
 #include "definitionjson.h"
 #include "fieldvalue.h"
 
@@ -685,14 +686,17 @@ void BusinessHexDecoderDialog::populateBusinessForm(const DecodeResult &decoded)
                 label->setText(raw.isEmpty() ? QStringLiteral("（无可解析数值）") : raw);
             continue;
         }
-        const long double scaleValue = configuredNumber(config, QStringLiteral("scale"), 1.0);
-        const double scale = scaleValue > 0.0 && std::isfinite(double(scaleValue)) ? double(scaleValue) : 1.0;
+        const BusinessValueResult input = businessRawToInputValue(m_fieldInfo.value(path), config, raw);
+        if (!input.success) {
+            editor->setToolTip(input.error);
+            continue;
+        }
 
         if (widgetType == QLatin1String("spinbox")) {
-            long double rawNumber = 0.0L;
-            if (parseBusinessNumber(raw, rawNumber)) {
+            bool ok = false;
+            const double displayed = input.value.toDouble(&ok);
+            if (ok && std::isfinite(displayed)) {
                 QSpinBox *spin = qobject_cast<QSpinBox *>(editor);
-                const long double displayed = std::round(rawNumber * scale);
                 const int target = displayed < std::numeric_limits<int>::min()
                     ? std::numeric_limits<int>::min()
                     : displayed > std::numeric_limits<int>::max()
@@ -709,10 +713,10 @@ void BusinessHexDecoderDialog::populateBusinessForm(const DecodeResult &decoded)
                     spin->setToolTip(QStringLiteral("当前值超出 UI 控件可表示范围；为避免静默改变数据，此字段暂时禁用。"));
             }
         } else if (widgetType == QLatin1String("doublespinbox")) {
-            long double rawNumber = 0.0L;
-            if (parseBusinessNumber(raw, rawNumber)) {
+            bool ok = false;
+            const double target = input.value.toDouble(&ok);
+            if (ok && std::isfinite(target)) {
                 QDoubleSpinBox *spin = qobject_cast<QDoubleSpinBox *>(editor);
-                const double target = double(rawNumber * scale);
                 if (target < spin->minimum() || target > spin->maximum()) {
                     spin->setRange(qMin(target, spin->minimum()), qMax(target, spin->maximum()));
                     spin->setValue(target);
@@ -738,7 +742,7 @@ void BusinessHexDecoderDialog::populateBusinessForm(const DecodeResult &decoded)
             }
             combo->setCurrentIndex(selected);
         } else if (widgetType == QLatin1String("checkbox")) {
-            const bool checked = raw == QLatin1String("true") || raw == QLatin1String("1");
+            const bool checked = input.value == QLatin1String("true");
             qobject_cast<QCheckBox *>(editor)->setChecked(checked);
         } else if (widgetType == QLatin1String("lineedit")) {
             qobject_cast<QLineEdit *>(editor)->setText(raw);
@@ -748,91 +752,6 @@ void BusinessHexDecoderDialog::populateBusinessForm(const DecodeResult &decoded)
     }
     m_populatingForm = false;
     m_businessForm->setEnabled(m_byteOrder->currentIndex() == 0);
-}
-
-bool BusinessHexDecoderDialog::collectBusinessValues(const QString &fieldPath,
-                                                     QHash<QString, QString> &values,
-                                                     QString &error) const
-{
-    values.clear();
-    for (auto it = m_fieldWidgets.constBegin(); it != m_fieldWidgets.constEnd(); ++it) {
-        const QString path = it.key();
-        if (!fieldPath.isEmpty() && path != fieldPath)
-            continue;
-        QWidget *editor = it.value();
-        if (!isEditableField(m_fieldInfo.value(path)))
-            continue;
-        const QJsonObject config = m_fieldConfigs.value(path).toObject();
-        const QString widgetType = config.value(QStringLiteral("widget")).toString();
-        const FieldInfo field = m_fieldInfo.value(path);
-        QString raw;
-        if (widgetType == QLatin1String("spinbox") || widgetType == QLatin1String("doublespinbox")) {
-            const double display = widgetType == QLatin1String("spinbox")
-                ? qobject_cast<QSpinBox *>(editor)->value()
-                : qobject_cast<QDoubleSpinBox *>(editor)->value();
-            const double scale = configuredNumber(config, QStringLiteral("scale"), 1.0);
-            if (!std::isfinite(scale) || scale <= 0.0) {
-                error = QStringLiteral("%1：换算比例必须是大于 0 的有限数字。").arg(path);
-                return false;
-            }
-            const long double value = static_cast<long double>(display) / scale;
-            if (field.valueKind == FieldValueKind::SignedInteger
-                || field.valueKind == FieldValueKind::UnsignedInteger
-                || field.valueKind == FieldValueKind::Boolean) {
-                const long double rounded = std::round(value);
-                const long double tolerance = 1e-9L * (std::fabs(value) > 1.0L ? std::fabs(value) : 1.0L);
-                if (std::fabs(value - rounded) > tolerance) {
-                    error = QStringLiteral("%1：按换算比例还原后不是整数。").arg(path);
-                    return false;
-                }
-                if (field.valueKind == FieldValueKind::Boolean) {
-                    if (rounded != 0.0L && rounded != 1.0L) {
-                        error = QStringLiteral("%1：布尔字段换算结果只能为 0 或 1。").arg(path);
-                        return false;
-                    }
-                    raw = rounded == 1.0L ? QStringLiteral("true") : QStringLiteral("false");
-                } else if (field.valueKind == FieldValueKind::SignedInteger) {
-                    if (rounded < static_cast<long double>(std::numeric_limits<qint64>::min())
-                        || rounded > static_cast<long double>(std::numeric_limits<qint64>::max())) {
-                        error = QStringLiteral("%1：换算后的整数超出范围。").arg(path);
-                        return false;
-                    }
-                    raw = QString::number(static_cast<qint64>(rounded));
-                } else {
-                    if (rounded < 0.0L
-                        || rounded > static_cast<long double>(std::numeric_limits<quint64>::max())) {
-                        error = QStringLiteral("%1：换算后的无符号整数超出范围。").arg(path);
-                        return false;
-                    }
-                    raw = QString::number(static_cast<quint64>(rounded));
-                }
-            } else {
-                raw = QString::number(double(value), 'g', 17);
-            }
-        } else if (widgetType == QLatin1String("combobox")) {
-            raw = qobject_cast<QComboBox *>(editor)->currentData().toString();
-            if (raw.isEmpty()) {
-                error = QStringLiteral("%1：请先选择一个下拉选项。").arg(path);
-                return false;
-            }
-            if (field.valueKind == FieldValueKind::Boolean) {
-                if (raw == QLatin1String("0")) raw = QStringLiteral("false");
-                else if (raw == QLatin1String("1")) raw = QStringLiteral("true");
-            }
-        } else if (widgetType == QLatin1String("checkbox")) {
-            const bool checked = qobject_cast<QCheckBox *>(editor)->isChecked();
-            raw = field.valueKind == FieldValueKind::Boolean
-                ? (checked ? QStringLiteral("true") : QStringLiteral("false"))
-                : (checked ? QStringLiteral("1") : QStringLiteral("0"));
-        } else if (widgetType == QLatin1String("lineedit")) {
-            raw = qobject_cast<QLineEdit *>(editor)->text();
-        } else {
-            continue;
-        }
-        values.insert(path, raw);
-    }
-    error.clear();
-    return true;
 }
 
 void BusinessHexDecoderDialog::renderResults(const DecodeResult &decoded, const StructInfo &structure,
@@ -853,30 +772,44 @@ void BusinessHexDecoderDialog::businessFormEdited()
     QWidget *editedWidget = qobject_cast<QWidget *>(sender());
     if (!editedWidget)
         return;
-    QHash<QString, QString> values;
-    QString error;
-    if (!collectBusinessValues(editedWidget->objectName(), values, error)) {
-        m_status->setText(error);
+    const QString path = editedWidget->objectName();
+    const QJsonObject config = m_fieldConfigs.value(path).toObject();
+    const QString widgetType = config.value(QStringLiteral("widget")).toString();
+    QString input;
+    if (widgetType == QLatin1String("spinbox")) {
+        input = QString::number(qobject_cast<QSpinBox *>(editedWidget)->value());
+    } else if (widgetType == QLatin1String("doublespinbox")) {
+        input = QString::number(qobject_cast<QDoubleSpinBox *>(editedWidget)->value(), 'g', 17);
+    } else if (widgetType == QLatin1String("combobox")) {
+        input = qobject_cast<QComboBox *>(editedWidget)->currentData().toString();
+        if (input.isEmpty()) {
+            m_status->setText(QStringLiteral("%1：请先选择一个下拉选项。").arg(path));
+            return;
+        }
+    } else if (widgetType == QLatin1String("checkbox")) {
+        input = qobject_cast<QCheckBox *>(editedWidget)->isChecked()
+            ? QStringLiteral("true") : QStringLiteral("false");
+    } else if (widgetType == QLatin1String("lineedit")) {
+        input = qobject_cast<QLineEdit *>(editedWidget)->text();
+    } else {
         return;
     }
-    if (values.isEmpty())
-        return;
-    const BinaryResult encoded = encodeStructure(m_activeStructure, values, m_currentBytes);
-    if (!encoded.success) {
-        m_status->setText(encoded.diagnostics.join(QLatin1Char('\n')));
-        return;
-    }
-    const DecodeResult decoded = decodeStructure(m_activeStructure, encoded.bytes, BinaryByteOrder::LittleEndian);
-    if (!decoded.success) {
-        m_status->setText(decoded.diagnostics.join(QLatin1Char('\n')));
+
+    QHash<QString, QString> inputValues;
+    inputValues.insert(path, input);
+    const BusinessFormResult updated = encodeBusinessForm(
+        m_activeStructure, m_activeConfig.object().value(QStringLiteral("fields")).toObject(),
+        inputValues, m_currentBytes);
+    if (!updated.success) {
+        m_status->setText(updated.diagnostics.join(QLatin1Char('\n')));
         return;
     }
-    m_currentBytes = encoded.bytes;
+    m_currentBytes = updated.bytes;
     {
         const QSignalBlocker blocker(m_hexInput);
-        m_hexInput->setPlainText(QString::fromLatin1(encoded.bytes.toHex(' ').toUpper()));
+        m_hexInput->setPlainText(QString::fromLatin1(updated.bytes.toHex(' ').toUpper()));
     }
-    renderResults(decoded, m_activeStructure, m_activeConfig.object());
+    renderResults(updated.decoded, m_activeStructure, m_activeConfig.object());
     m_status->setText(QStringLiteral("已根据右侧业务表单重新生成 HEX，并同步刷新左侧字段解析结果。未编辑的只读字段、数组和填充字节已保留。"));
 }
 
@@ -931,13 +864,27 @@ void BusinessHexDecoderDialog::decode()
             clearResult(QStringLiteral("结构体大小无效或超过默认 HEX 生成上限（1 MiB）。"));
             return;
         }
-        QHash<QString, QString> defaultValues;
-        if (!collectBusinessValues(QString(), defaultValues, error)) {
-            clearResult(QStringLiteral("无法读取业务表单默认值：%1").arg(error));
-            return;
+        QHash<QString, QString> defaultInputs;
+        for (auto it = m_fieldWidgets.constBegin(); it != m_fieldWidgets.constEnd(); ++it) {
+            const QString path = it.key();
+            const QJsonObject fieldConfig = m_fieldConfigs.value(path).toObject();
+            const QString widgetType = fieldConfig.value(QStringLiteral("widget")).toString();
+            QWidget *editor = it.value();
+            if (widgetType == QLatin1String("spinbox"))
+                defaultInputs.insert(path, QString::number(qobject_cast<QSpinBox *>(editor)->value()));
+            else if (widgetType == QLatin1String("doublespinbox"))
+                defaultInputs.insert(path, QString::number(qobject_cast<QDoubleSpinBox *>(editor)->value(), 'g', 17));
+            else if (widgetType == QLatin1String("combobox"))
+                defaultInputs.insert(path, qobject_cast<QComboBox *>(editor)->currentData().toString());
+            else if (widgetType == QLatin1String("checkbox"))
+                defaultInputs.insert(path, qobject_cast<QCheckBox *>(editor)->isChecked()
+                    ? QStringLiteral("true") : QStringLiteral("false"));
+            else if (widgetType == QLatin1String("lineedit"))
+                defaultInputs.insert(path, qobject_cast<QLineEdit *>(editor)->text());
         }
         const QByteArray zeroBase(int(structure.size), '\0');
-        const BinaryResult generated = encodeStructure(structure, defaultValues, zeroBase);
+        const BusinessFormResult generated = encodeBusinessForm(
+            structure, config.object().value(QStringLiteral("fields")).toObject(), defaultInputs, zeroBase);
         if (!generated.success) {
             clearResult(QStringLiteral("无法根据默认值生成 HEX：\n%1")
                         .arg(generated.diagnostics.join(QLatin1Char('\n'))));

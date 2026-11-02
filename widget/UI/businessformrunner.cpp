@@ -1,7 +1,7 @@
 #include "businessformrunner.h"
 
 #include "businessformpreview.h"
-#include "businessconfigutils.h"
+#include "business/businessconfigutils.h"
 #include "definitionjson.h"
 
 #include <QDir>
