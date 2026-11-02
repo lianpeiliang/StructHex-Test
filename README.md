@@ -8,14 +8,14 @@ StructHex 是一个使用 qmake（`.pro`）构建的 Qt Widgets 结构体与业�
 
 主窗口使用紫色自定义标题栏，右侧提供圆圈问号帮助图标、最小化、最大化/还原和关闭按钮。点击帮助图标或按 F1 打开使用帮助，包含功能概览、数据流程图、格式与限制；窗口可调整大小，内容支持滚动，按 Esc 或点击“关闭”退出。帮助可与主界面同时查看，重复点击会激活已有窗口。Windows 下可拖动标题区域、双击最大化/还原、拖动边缘和四角缩放，并沿用系统的贴边吸附；最大化使用当前显示器的工作区，保留任务栏。窗口最小尺寸为 1040 × 640。窗口操作检查使用 `tests/window-tests.pro`，需在 Windows 桌面环境运行。
 
-界面相关的 C++ 源码与头文件统一放在 `UI/` 目录；`main.cpp` 是程序入口。结构解析、字段校验、编解码、JSON 处理、业务配置校验、业务值转换和结构会话由 Qt Core 动态库 `StructHexCore.dll` 提供，QWidget 程序通过公共头文件调用；界面层继续负责控件创建、输入采集、结果展示和交互。这样后续的 QML 界面可以复用同一业务库。
+界面相关的 C++ 源码与头文件统一放在 `UI/` 目录；`main.cpp` 是程序入口。结构解析、字段校验、编解码、JSON 处理、业务配置校验、业务值转换和结构会话的源码及公共头文件统一放在 `core/`，并由 Qt Core 动态库 `StructHexCore.dll` 提供。QWidget 程序通过核心库接口调用；界面层负责控件创建、输入采集、结果展示和交互。后续的 QML 界面也可以复用这套核心代码。
 
 ## 项目文件
 
 | 文件 | 用途 |
 | --- | --- |
 | `StructHex.pro` | QWidget 应用项目配置；构建时先生成并链接核心动态库 |
-| `StructHexCore.pro` | Qt Core 动态库项目，包含不依赖 Qt Widgets 的业务及数据处理接口 |
+| `core/StructHexCore.pro` | Qt Core 动态库项目，包含不依赖 Qt Widgets 的业务及数据处理接口 |
 | `main.cpp` | 创建 QApplication，启动窗口 |
 | `UI/mainwindow.h / .cpp` | 协调结构定义加载、字段编辑区、操作按钮及解析诊断 |
 | `UI/workflowlauncher.h / .cpp` | 启动工作台，分别进入结构定义、表单设计和表单运行流程 |
@@ -25,18 +25,18 @@ StructHex 是一个使用 qmake（`.pro`）构建的 Qt Widgets 结构体与业�
 | `UI/businessconfigeditor.h / .cpp` | 根据当前结构字段编辑业务表单元数据，并导出业务配置 JSON |
 | `UI/businessformrunner.h / .cpp` | 手动选择业务配置和结构定义 JSON，校验后启动运行表单 |
 | `UI/businesshexdecoder.h / .cpp` | 联合结构定义和业务配置解析十六进制，嵌入可编辑业务表单并同步刷新解析结果 |
-| `businessconfigutils.h / .cpp` | 核心库中的业务配置加载和校验，检查结构体名称、字段路径及布局指纹 |
-| `businesscodec.h / .cpp` | 核心库中的业务数值解析、选项匹配和业务显示值转换规则 |
+| `core/businessconfigutils.h / .cpp` | 核心库中的业务配置加载和校验，检查结构体名称、字段路径及布局指纹 |
+| `core/businesscodec.h / .cpp` | 核心库中的业务数值解析、选项匹配和业务显示值转换规则 |
 | `UI/structureselectorbar.h / .cpp` | 结构体候选刷新、选择和展开/折叠操作 |
 | `UI/framelesswindow.h / .cpp` | 自定义标题栏、窗口按钮及 Windows 原生拖动、缩放、工作区处理 |
 | `UI/hexdialogs.h / .cpp` | 十六进制预览、复制/导出、解析与粘贴导入弹窗及输入记忆 |
 | `UI/helpdialog.h / .cpp` | 功能介绍、数据流程图与格式说明，复用单个非模态帮助窗口 |
-| `headerparser.h / .cpp` | 调用 libclang，返回结构体和字段的查询结果 |
-| `structuresession.h / .cpp` | 非 UI 的定义会话，管理文件加载、候选、当前选择和诊断 |
-| `fieldvalue.h / .cpp` | 根据字段类型、位宽校验输入，保留完整的 64 位整数文本 |
-| `binaryencoder.h / .cpp` | 按目标布局编码当前字段值，并格式化十六进制预览 |
-| `binarydecoder.h / .cpp` | 校验十六进制输入，按已导入布局和字节序解析字段 |
-| `definitionjson.h / .cpp` | 导出及校验加载结构定义 JSON，使用 QSaveFile 保存 |
+| `core/headerparser.h / .cpp` | 调用 libclang，返回结构体和字段的查询结果 |
+| `core/structuresession.h / .cpp` | 非 UI 的定义会话，管理文件加载、候选、当前选择和诊断 |
+| `core/fieldvalue.h / .cpp` | 根据字段类型、位宽校验输入，保留完整的 64 位整数文本 |
+| `core/binaryencoder.h / .cpp` | 按目标布局编码当前字段值，并格式化十六进制预览 |
+| `core/binarydecoder.h / .cpp` | 校验十六进制输入，按已导入布局和字节序解析字段 |
+| `core/definitionjson.h / .cpp` | 导出及校验加载结构定义 JSON，使用 QSaveFile 保存 |
 | `TestHeader/MsgHeader.h` | 待解析的结构体定义，使用 `#pragma pack(push, 1)` |
 | `TestHeader/SimpleMsgHeader.h` | 只有 3 个基础类型字段的简单对比样例，同样使用 1 字节打包 |
 | `TestHeader/MinimalMsgHeader.h` | 只有 2 个字段的最小样例，使用默认对齐 |
@@ -72,12 +72,12 @@ StructHex 是一个使用 qmake（`.pro`）构建的 Qt Widgets 结构体与业�
 初次阅读可以先打开 `TestHeader/MinimalMsgHeader.h`，对照这个只有两个字段的样例，再按下面的顺序看源码：
 
 1. `main.cpp`：程序从这里开始，创建应用和窗口，进入 Qt 事件循环。
-2. `headerparser.h`：先认识 `FieldInfo`、`StructInfo` 和解析结果，各功能都围绕这些数据工作。
+2. `core/headerparser.h`：先认识 `FieldInfo`、`StructInfo` 和解析结果，各功能都围绕这些数据工作。
 3. `UI/mainwindow.cpp`：先看构造函数如何组织界面和连接信号，再看 `reloadDefinition()` → `showSelectedStructure()`；随后阅读 `UI/fieldeditor.cpp` 的 `setStructure()` 和 `appendFields()`，理解定义如何变成可编辑的字段树。
-4. `headerparser.cpp`：从 `parseHeaderStructures()` 看解析入口，再看 `discoverRecords()`、`parseRecord()`、`visitField()`，理解结构体发现、布局读取和嵌套递归。
-5. `fieldvalue.cpp`：看 `validateFieldValue()`，理解字符串格式检查、数值转换及范围校验。
-6. `binaryencoder.cpp` / `binarydecoder.cpp`：看字段值如何变成字节，以及如何按偏移、位宽和字节序读回来。
-7. `definitionjson.cpp`：看结构定义如何递归转为 JSON，以及读取时怎样检查数据。
+4. `core/headerparser.cpp`：从 `parseHeaderStructures()` 看解析入口，再看 `discoverRecords()`、`parseRecord()`、`visitField()`，理解结构体发现、布局读取和嵌套递归。
+5. `core/fieldvalue.cpp`：看 `validateFieldValue()`，理解字符串格式检查、数值转换及范围校验。
+6. `core/binaryencoder.cpp` / `core/binarydecoder.cpp`：看字段值如何变成字节，以及如何按偏移、位宽和字节序读回来。
+7. `core/definitionjson.cpp`：看结构定义如何递归转为 JSON，以及读取时怎样检查数据。
 
 常见写法：`const T &` 表示通过只读引用传参；`auto` 让编译器推导变量类型；`[this, ...](...) { ... }` 是 lambda，常用来处理 Qt 信号。`QVector` 保存顺序列表，`QHash` 按键查找数据。布局中的 `size`、`alignment` 以字节为单位，名字带 `Bits` 的偏移以 bit 为单位，1 字节 = 8 bit。
 
