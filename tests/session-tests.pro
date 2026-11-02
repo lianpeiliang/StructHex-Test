@@ -1,10 +1,8 @@
-STRUCTHEX_ROOT = $$clean_path($$PWD/..)
-include(../StructHex.pro)
+include(test-common.pri)
 TARGET = session-tests
 QT = core
 CONFIG += console
 RESOURCES =
 RC_ICONS =
-SOURCES = $$PWD/session-tests.cpp $$PWD/../core/structuresession.cpp $$PWD/../core/headerparser.cpp $$PWD/../core/definitionjson.cpp $$PWD/../core/fieldvalue.cpp
-HEADERS = $$PWD/../core/structuresession.h $$PWD/../core/headerparser.h $$PWD/../core/definitionjson.h $$PWD/../core/fieldvalue.h
-INCLUDEPATH += $$PWD/../core
+SOURCES = $$PWD/session-tests.cpp $$TEST_ROOT/core/structuresession.cpp $$TEST_ROOT/core/headerparser.cpp $$TEST_ROOT/core/definitionjson.cpp $$TEST_ROOT/core/fieldvalue.cpp
+HEADERS = $$TEST_ROOT/core/structuresession.h $$TEST_ROOT/core/headerparser.h $$TEST_ROOT/core/definitionjson.h $$TEST_ROOT/core/fieldvalue.h

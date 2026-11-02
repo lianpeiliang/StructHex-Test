@@ -2,35 +2,36 @@
 
 StructHex 是一个使用 qmake（`.pro`）构建的 Qt Widgets 结构体与业务表单工具。启动后进入工作台，按“结构定义 → 业务表单设计 → 业务表单运行”分阶段操作，并可使用“业务数据编解码”联合结构定义 JSON 与业务配置 JSON，解析和编辑十六进制数据。结构定义阶段通过 libclang 解析 C++ 头文件或加载结构定义 JSON；业务表单设计阶段编辑字段显示和控件规则；业务表单运行阶段根据业务 JSON 和匹配的结构定义生成表单及十六进制数据；业务数据编解码阶段在结构解析结果中补充业务名称、单位、换算值和下拉选项含义，并支持通过表单生成十六进制数据。命令行传入路径时仍可直接打开结构定义窗口。
 
-应用图标采用 Microsoft Fluent UI System Icons 的 [Code Block 彩色图标](https://github.com/microsoft/fluentui-system-icons/blob/main/assets/Code%20Block/SVG/ic_fluent_code_block_48_color.svg)，遵循 MIT 许可。图标源文件、多尺寸 Windows `.ico` 及许可保存在 `assets/`；程序内嵌图标，便携包同时附带许可文件。
+应用图标采用 Microsoft Fluent UI System Icons 的 [Code Block 彩色图标](https://github.com/microsoft/fluentui-system-icons/blob/main/assets/Code%20Block/SVG/ic_fluent_code_block_48_color.svg)，遵循 MIT 许可。图标源文件、多尺寸 Windows `.ico` 及许可保存在 `widget/assets/`；程序内嵌图标，便携包同时附带许可文件。
 
-界面采用与图标一致的紫色主题：浅紫背景、白色内容区、紫色渐变主按钮及统一的输入框、字段树和弹窗样式。样式集中保存在 `assets/structhex.qss`，通过 `resources.qrc` 内嵌，在 `UI/theme.cpp` 中加载；修改 QSS 后重新构建即可。无效输入使用红色边框和提示，禁用、悬停、焦点和选中状态分别定义。
+界面采用与图标一致的紫色主题：浅紫背景、白色内容区、紫色渐变主按钮及统一的输入框、字段树和弹窗样式。样式集中保存在 `widget/assets/structhex.qss`，通过 `widget/resources.qrc` 内嵌，在 `widget/UI/theme.cpp` 中加载；修改 QSS 后重新构建即可。无效输入使用红色边框和提示，禁用、悬停、焦点和选中状态分别定义。
 
 主窗口使用紫色自定义标题栏，右侧提供圆圈问号帮助图标、最小化、最大化/还原和关闭按钮。点击帮助图标或按 F1 打开使用帮助，包含功能概览、数据流程图、格式与限制；窗口可调整大小，内容支持滚动，按 Esc 或点击“关闭”退出。帮助可与主界面同时查看，重复点击会激活已有窗口。Windows 下可拖动标题区域、双击最大化/还原、拖动边缘和四角缩放，并沿用系统的贴边吸附；最大化使用当前显示器的工作区，保留任务栏。窗口最小尺寸为 1040 × 640。窗口操作检查使用 `tests/window-tests.pro`，需在 Windows 桌面环境运行。
 
-界面相关的 C++ 源码与头文件统一放在 `UI/` 目录；`main.cpp` 是程序入口。结构解析、字段校验、编解码、JSON 处理、业务配置校验、业务值转换和结构会话的源码及公共头文件统一放在 `core/`，并由 Qt Core 动态库 `StructHexCore.dll` 提供。QWidget 程序通过核心库接口调用；界面层负责控件创建、输入采集、结果展示和交互。后续的 QML 界面也可以复用这套核心代码。
+顶层 `StructHex.pro` 使用 qmake `subdirs` 模板，下面包含 `core/` 和 `widget/` 两个子项目，Qt Creator 中可以分别查看它们的构建状态。`core/` 存放业务逻辑、公共头文件和 Qt Core 动态库工程；`widget/` 存放 QWidget 应用、界面源码与资源。QWidget 通过核心库接口调用业务逻辑，后续 QML 项目也可以复用 `core/`。
 
 ## 项目文件
 
 | 文件 | 用途 |
 | --- | --- |
-| `StructHex.pro` | QWidget 应用项目配置；构建时先生成并链接核心动态库 |
+| `StructHex.pro` | 顶层 qmake `subdirs` 项目，组织 core 与 widget 两个子项目 |
 | `core/StructHexCore.pro` | Qt Core 动态库项目，包含不依赖 Qt Widgets 的业务及数据处理接口 |
-| `main.cpp` | 创建 QApplication，启动窗口 |
-| `UI/mainwindow.h / .cpp` | 协调结构定义加载、字段编辑区、操作按钮及解析诊断 |
-| `UI/workflowlauncher.h / .cpp` | 启动工作台，分别进入结构定义、表单设计和表单运行流程 |
-| `UI/fieldeditor.h / .cpp` | 独立字段编辑区，管理树形控件、输入值、校验和填回 |
-| `UI/definitionpanel.h / .cpp` | 组合文件操作栏、结构体选择栏和来源提示，统一转发操作信号 |
-| `UI/definitionfilebar.h / .cpp` | 定义文件路径输入、打开和重新加载 |
-| `UI/businessconfigeditor.h / .cpp` | 根据当前结构字段编辑业务表单元数据，并导出业务配置 JSON |
-| `UI/businessformrunner.h / .cpp` | 手动选择业务配置和结构定义 JSON，校验后启动运行表单 |
-| `UI/businesshexdecoder.h / .cpp` | 联合结构定义和业务配置解析十六进制，嵌入可编辑业务表单并同步刷新解析结果 |
+| `widget/StructHexWidget.pro` | QWidget 应用子项目，依赖并链接 core 动态库 |
+| `widget/main.cpp` | 创建 QApplication，启动窗口 |
+| `widget/UI/mainwindow.h / .cpp` | 协调结构定义加载、字段编辑区、操作按钮及解析诊断 |
+| `widget/UI/workflowlauncher.h / .cpp` | 启动工作台，分别进入结构定义、表单设计和表单运行流程 |
+| `widget/UI/fieldeditor.h / .cpp` | 独立字段编辑区，管理树形控件、输入值、校验和填回 |
+| `widget/UI/definitionpanel.h / .cpp` | 组合文件操作栏、结构体选择栏和来源提示，统一转发操作信号 |
+| `widget/UI/definitionfilebar.h / .cpp` | 定义文件路径输入、打开和重新加载 |
+| `widget/UI/businessconfigeditor.h / .cpp` | 根据当前结构字段编辑业务表单元数据，并导出业务配置 JSON |
+| `widget/UI/businessformrunner.h / .cpp` | 手动选择业务配置和结构定义 JSON，校验后启动运行表单 |
+| `widget/UI/businesshexdecoder.h / .cpp` | 联合结构定义和业务配置解析十六进制，嵌入可编辑业务表单并同步刷新解析结果 |
 | `core/businessconfigutils.h / .cpp` | 核心库中的业务配置加载和校验，检查结构体名称、字段路径及布局指纹 |
 | `core/businesscodec.h / .cpp` | 核心库中的业务数值解析、选项匹配和业务显示值转换规则 |
-| `UI/structureselectorbar.h / .cpp` | 结构体候选刷新、选择和展开/折叠操作 |
-| `UI/framelesswindow.h / .cpp` | 自定义标题栏、窗口按钮及 Windows 原生拖动、缩放、工作区处理 |
-| `UI/hexdialogs.h / .cpp` | 十六进制预览、复制/导出、解析与粘贴导入弹窗及输入记忆 |
-| `UI/helpdialog.h / .cpp` | 功能介绍、数据流程图与格式说明，复用单个非模态帮助窗口 |
+| `widget/UI/structureselectorbar.h / .cpp` | 结构体候选刷新、选择和展开/折叠操作 |
+| `widget/UI/framelesswindow.h / .cpp` | 自定义标题栏、窗口按钮及 Windows 原生拖动、缩放、工作区处理 |
+| `widget/UI/hexdialogs.h / .cpp` | 十六进制预览、复制/导出、解析与粘贴导入弹窗及输入记忆 |
+| `widget/UI/helpdialog.h / .cpp` | 功能介绍、数据流程图与格式说明，复用单个非模态帮助窗口 |
 | `core/headerparser.h / .cpp` | 调用 libclang，返回结构体和字段的查询结果 |
 | `core/structuresession.h / .cpp` | 非 UI 的定义会话，管理文件加载、候选、当前选择和诊断 |
 | `core/fieldvalue.h / .cpp` | 根据字段类型、位宽校验输入，保留完整的 64 位整数文本 |
@@ -71,9 +72,9 @@ StructHex 是一个使用 qmake（`.pro`）构建的 Qt Widgets 结构体与业�
 
 初次阅读可以先打开 `TestHeader/MinimalMsgHeader.h`，对照这个只有两个字段的样例，再按下面的顺序看源码：
 
-1. `main.cpp`：程序从这里开始，创建应用和窗口，进入 Qt 事件循环。
+1. `widget/main.cpp`：程序从这里开始，创建应用和窗口，进入 Qt 事件循环。
 2. `core/headerparser.h`：先认识 `FieldInfo`、`StructInfo` 和解析结果，各功能都围绕这些数据工作。
-3. `UI/mainwindow.cpp`：先看构造函数如何组织界面和连接信号，再看 `reloadDefinition()` → `showSelectedStructure()`；随后阅读 `UI/fieldeditor.cpp` 的 `setStructure()` 和 `appendFields()`，理解定义如何变成可编辑的字段树。
+3. `widget/UI/mainwindow.cpp`：先看构造函数如何组织界面和连接信号，再看 `reloadDefinition()` → `showSelectedStructure()`；随后阅读 `widget/UI/fieldeditor.cpp` 的 `setStructure()` 和 `appendFields()`，理解定义如何变成可编辑的字段树。
 4. `core/headerparser.cpp`：从 `parseHeaderStructures()` 看解析入口，再看 `discoverRecords()`、`parseRecord()`、`visitField()`，理解结构体发现、布局读取和嵌套递归。
 5. `core/fieldvalue.cpp`：看 `validateFieldValue()`，理解字符串格式检查、数值转换及范围校验。
 6. `core/binaryencoder.cpp` / `core/binarydecoder.cpp`：看字段值如何变成字节，以及如何按偏移、位宽和字节序读回来。
@@ -264,7 +265,7 @@ New-Item -ItemType Directory -Path build -Force | Out-Null
 Set-Location build
 & "$qtBin/qmake.exe" ../StructHex.pro -spec win32-clang-g++ "LIBCLANG_ROOT=$clangRoot" "CONFIG+=release" "CONFIG-=debug_and_release"
 & "$qtRoot/Tools/mingw730_64/bin/mingw32-make.exe" -j2
-.\StructHex.exe
+.\widget\StructHex.exe
 ```
 
 ## 解析结果
@@ -302,7 +303,7 @@ Set-Location build
 头文件在运行时解析，修改其内容后点击 **重新加载** 即可。也可以传入其他头文件，结构体名称会自动识别：
 
 ```powershell
-.\StructHex.exe C:/path/to/other.h
+.\widget\StructHex.exe C:/path/to/other.h
 ```
 
 ## 回归检查

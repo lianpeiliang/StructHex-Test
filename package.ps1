@@ -37,8 +37,8 @@ try {
         Invoke-Checked (Join-Path $compilerBin 'mingw32-make.exe') @('-j2')
     } finally { Pop-Location }
 
-    Copy-Item -LiteralPath (Join-Path $buildDir 'StructHex.exe') -Destination $appDir
-    Copy-Item -LiteralPath (Join-Path $buildDir 'StructHexCore.dll') -Destination $appDir
+    Copy-Item -LiteralPath (Join-Path $buildDir 'widget/StructHex.exe') -Destination $appDir
+    Copy-Item -LiteralPath (Join-Path $buildDir 'core/StructHexCore.dll') -Destination $appDir
     Write-Host 'Deploying Qt...'
     # DLL 运行库由后续扫描统一从 MSYS2 复制，避免混入旧版 libstdc++。
     Invoke-Checked (Join-Path $qtBin 'windeployqt.exe') @(
@@ -97,18 +97,17 @@ try {
     New-Item -ItemType Directory -Path $sourceDir, $licenseDir -Force | Out-Null
     Copy-Item -LiteralPath $testHeadersDir -Destination $appDir -Recurse
     foreach ($file in @(
-        'main.cpp', 'StructHex.pro', 'resources.qrc', 'README.md', 'package.ps1'
+        'StructHex.pro', 'README.md', 'package.ps1'
     )) {
         Copy-Item -LiteralPath (Join-Path $projectRoot $file) -Destination $sourceDir
     }
     Copy-Item -LiteralPath (Join-Path $projectRoot 'core') -Destination $sourceDir -Recurse
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'widget') -Destination $sourceDir -Recurse
     Copy-Item -LiteralPath $testHeadersDir -Destination $sourceDir -Recurse
-    Copy-Item -LiteralPath (Join-Path $projectRoot 'UI') -Destination $sourceDir -Recurse
-    Copy-Item -LiteralPath (Join-Path $projectRoot 'assets') -Destination $sourceDir -Recurse
     Copy-Item -LiteralPath (Join-Path $projectRoot 'tests') -Destination $sourceDir -Recurse
     Copy-Item -LiteralPath (Join-Path $ClangRoot 'share/licenses') -Destination (Join-Path $licenseDir 'msys2') -Recurse
     Copy-Item -LiteralPath (Join-Path $QtRoot 'Licenses') -Destination (Join-Path $licenseDir 'qt') -Recurse
-    Copy-Item -LiteralPath (Join-Path $projectRoot 'assets/LICENSE-FluentUI.txt') -Destination $licenseDir
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'widget/assets/LICENSE-FluentUI.txt') -Destination $licenseDir
 
     $instructions = @'
 StructHex · 结构体数据编辑器 Windows x64 便携版

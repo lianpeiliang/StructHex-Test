@@ -1,24 +1,23 @@
-STRUCTHEX_ROOT = $$clean_path($$PWD/..)
-include(../StructHex.pro)
+include(test-common.pri)
 
 TARGET = nested-tests
 CONFIG += console
-INCLUDEPATH += $$PWD/.. $$PWD/../core
-SOURCES = $$PWD/nested-tests.cpp $$PWD/../core/headerparser.cpp $$PWD/../UI/mainwindow.cpp $$PWD/../core/fieldvalue.cpp $$PWD/../core/binaryencoder.cpp $$PWD/../core/binarydecoder.cpp $$PWD/../core/definitionjson.cpp $$PWD/../UI/theme.cpp
-HEADERS = $$PWD/../core/headerparser.h $$PWD/../UI/mainwindow.h $$PWD/../core/fieldvalue.h $$PWD/../core/binaryencoder.h $$PWD/../core/binarydecoder.h $$PWD/../core/definitionjson.h $$PWD/../UI/theme.h
+INCLUDEPATH += $$TEST_ROOT $$TEST_ROOT/core $$TEST_ROOT/widget
+SOURCES = $$PWD/nested-tests.cpp $$TEST_ROOT/core/headerparser.cpp $$TEST_ROOT/widget/UI/mainwindow.cpp $$TEST_ROOT/core/fieldvalue.cpp $$TEST_ROOT/core/binaryencoder.cpp $$TEST_ROOT/core/binarydecoder.cpp $$TEST_ROOT/core/definitionjson.cpp $$TEST_ROOT/widget/UI/theme.cpp
+HEADERS = $$TEST_ROOT/core/headerparser.h $$TEST_ROOT/widget/UI/mainwindow.h $$TEST_ROOT/core/fieldvalue.h $$TEST_ROOT/core/binaryencoder.h $$TEST_ROOT/core/binarydecoder.h $$TEST_ROOT/core/definitionjson.h $$TEST_ROOT/widget/UI/theme.h
 
-SOURCES += $$PWD/../UI/framelesswindow.cpp $$PWD/../UI/hexdialogs.cpp
-HEADERS += $$PWD/../UI/framelesswindow.h $$PWD/../UI/hexdialogs.h
-SOURCES += $$PWD/../UI/helpdialog.cpp
-HEADERS += $$PWD/../UI/helpdialog.h
+SOURCES += $$TEST_ROOT/widget/UI/framelesswindow.cpp $$TEST_ROOT/widget/UI/hexdialogs.cpp
+HEADERS += $$TEST_ROOT/widget/UI/framelesswindow.h $$TEST_ROOT/widget/UI/hexdialogs.h
+SOURCES += $$TEST_ROOT/widget/UI/helpdialog.cpp
+HEADERS += $$TEST_ROOT/widget/UI/helpdialog.h
 
-SOURCES += $$PWD/../UI/fieldeditor.cpp
-HEADERS += $$PWD/../UI/fieldeditor.h
+SOURCES += $$TEST_ROOT/widget/UI/fieldeditor.cpp
+HEADERS += $$TEST_ROOT/widget/UI/fieldeditor.h
 
-SOURCES += $$PWD/../core/structuresession.cpp
-HEADERS += $$PWD/../core/structuresession.h
+SOURCES += $$TEST_ROOT/core/structuresession.cpp
+HEADERS += $$TEST_ROOT/core/structuresession.h
 
-SOURCES += $$PWD/../UI/definitionpanel.cpp
-HEADERS += $$PWD/../UI/definitionpanel.h
-SOURCES += $$PWD/../UI/definitionfilebar.cpp $$PWD/../UI/structureselectorbar.cpp
-HEADERS += $$PWD/../UI/definitionfilebar.h $$PWD/../UI/structureselectorbar.h
+SOURCES += $$TEST_ROOT/widget/UI/definitionpanel.cpp
+HEADERS += $$TEST_ROOT/widget/UI/definitionpanel.h
+SOURCES += $$TEST_ROOT/widget/UI/definitionfilebar.cpp $$TEST_ROOT/widget/UI/structureselectorbar.cpp
+HEADERS += $$TEST_ROOT/widget/UI/definitionfilebar.h $$TEST_ROOT/widget/UI/structureselectorbar.h
