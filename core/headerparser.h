@@ -48,6 +48,7 @@ struct StructInfo
     QString name;                // 结构体名称，可包含作用域，例如 demo::Packet 或 Outer::Inner。
     qint64 size = -1;            // 整个结构体的大小，单位字节，包含填充；负数表示尚无有效布局。
     qint64 alignment = -1;       // 结构体的对齐要求，单位字节，受 #pragma pack 等设置影响。
+    int packAlignment = 0;       // 创建界面选择的 #pragma pack 上限；0 表示来源未记录此设置。
     QVector<FieldInfo> fields;   // 按声明顺序保存直接成员；更深层成员保存在各字段的 children 中。
     QString binaryEncodingIssue; // 整体布局的二进制处理限制原因，如继承、虚函数；为空表示未记录限制。
 };

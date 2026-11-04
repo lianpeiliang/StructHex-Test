@@ -220,6 +220,8 @@ libclang 的查询结果先复制到 `StructInfo` 和 `FieldInfo`，再交给窗
 
 顶层保存 `schemaVersion`、`target`、`byteOrder`、`name`、`size`、`alignment` 和 `fields`。当前格式版本为 1，目标为 `x86_64-w64-windows-gnu`，字节序为 `little`。这是一份本程序的结构描述格式。
 
+通过“新建结构定义”创建的文件还会保存可选的 `packAlignment`（1、2、4 或 8），记录界面选择的 `#pragma pack` 上限，供后续编辑时还原。头文件解析结果没有独立的 pack 设置可供读取，因此从头文件导出的 JSON 不包含此字段；旧 JSON 仍可加载。`packAlignment` 不参与业务配置的结构布局指纹。
+
 字段保存 `name`、`type`、`canonicalType`、`kind`、`size`、`alignment`、`offsetBits`、`absoluteOffsetBits`、`isArray`、`isBitField`、`editable` 和递归的 `fields`。整数附带 `integerBits`，位域附带 `bitWidth`；必要时附带只读原因和二进制编码限制。`size`、`alignment` 单位为字节，偏移单位为 bit：`offsetBits` 相对直接所属结构体，`absoluteOffsetBits` 相对最外层结构体。
 
 数组保留原始类型、展开别名后的类型、尺寸和数组标记，当前不展开元素，`fields` 为空数组。普通叶子字段的 `fields` 同样为空数组。布局整数通常保存为 JSON 数字；超过 ±(2^53−1) 的整数以十进制字符串保存，避免 Qt 5 JSON 数字转换丢失精度。

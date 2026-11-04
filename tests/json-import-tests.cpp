@@ -64,10 +64,26 @@ int main(int argc, char **argv)
         const QJsonDocument definition = structureDefinitionJson(parsed.structure);
         const ParseResult imported = parseStructureDefinitionJson(definition.toJson());
         CHECK(imported.success);
+        CHECK(imported.structure.packAlignment == 0);
         CHECK(structureDefinitionJson(imported.structure) == definition);
     }
     const ParseResult nested = parseHeader(testHeaders + "/NestedPacketHeader.h", "NestedPacketHeader");
     const QJsonObject root = structureDefinitionJson(nested.structure).object();
+    CHECK(!root.contains("packAlignment"));
+    StructInfo authored = nested.structure;
+    authored.packAlignment = 1;
+    const QJsonDocument authoredJson = structureDefinitionJson(authored);
+    CHECK(authoredJson.object().value("packAlignment").toInt() == 1);
+    const ParseResult authoredImport = parseStructureDefinitionJson(authoredJson.toJson());
+    CHECK(authoredImport.success && authoredImport.structure.packAlignment == 1);
+    CHECK(structureDefinitionJson(authoredImport.structure) == authoredJson);
+    CHECK(structureDefinitionFingerprint(authored) == structureDefinitionFingerprint(nested.structure));
+    for (const QJsonValue invalidPack : {QJsonValue(0), QJsonValue(3), QJsonValue(16),
+                                         QJsonValue(QStringLiteral("1"))}) {
+        QJsonObject changed = root;
+        changed.insert("packAlignment", invalidPack);
+        CHECK(rejects(changed));
+    }
     CHECK(!parseStructureDefinitionJson("{").success);
     CHECK(!parseStructureDefinitionJson("[]").success);
     CHECK(rejects(QJsonObject{{"name", "ordinary JSON"}}));

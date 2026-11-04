@@ -266,6 +266,7 @@ bool StructureDefinitionCreatorDialog::buildStructure(StructInfo &structure, QSt
     structure = StructInfo();
     structure.name = name;
     const qint64 pack = m_packAlignment->currentData().toLongLong();
+    structure.packAlignment = int(pack);
     qint64 cursor = 0;
     QSet<QString> fieldNames;
     for (int row = 0; row < m_fields->rowCount(); ++row) {

@@ -258,12 +258,16 @@ QJsonDocument structureDefinitionJson(const StructInfo &structure)
     };
     if (!structure.binaryEncodingIssue.isEmpty())
         root.insert(QStringLiteral("binaryEncodingIssue"), structure.binaryEncodingIssue);
+    if (structure.packAlignment > 0)
+        root.insert(QStringLiteral("packAlignment"), structure.packAlignment);
     return QJsonDocument(root);
 }
 
 QString structureDefinitionFingerprint(const StructInfo &structure)
 {
-    const QByteArray bytes = structureDefinitionJson(structure).toJson(QJsonDocument::Compact);
+    QJsonObject layout = structureDefinitionJson(structure).object();
+    layout.remove(QStringLiteral("packAlignment")); // 元数据变化不改变结构布局指纹。
+    const QByteArray bytes = QJsonDocument(layout).toJson(QJsonDocument::Compact);
     return QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex());
 }
 
@@ -321,6 +325,16 @@ ParseResult parseStructureDefinitionJson(const QByteArray &bytes)
     if (root.contains("value") || root.contains("values")) {
         result.diagnostics.append(QStringLiteral("需要不含实例值的结构定义 JSON。"));
         return result;
+    }
+    if (root.contains("packAlignment")) {
+        const QJsonValue pack = root.value("packAlignment");
+        if (!pack.isDouble() || (pack.toInt() != 1 && pack.toInt() != 2
+                                 && pack.toInt() != 4 && pack.toInt() != 8)
+            || pack.toDouble() != pack.toInt()) {
+            result.diagnostics.append(QStringLiteral("$.packAlignment：必须是 1、2、4 或 8。"));
+            return result;
+        }
+        structure.packAlignment = pack.toInt();
     }
     if (!reader.text(root, "name", structure.name, "$")
         || !reader.number(root, "size", structure.size, "$")
