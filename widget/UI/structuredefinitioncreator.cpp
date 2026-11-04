@@ -34,14 +34,14 @@ struct TypeSpec
 };
 
 const TypeSpec typeSpecs[] = {
-    {"std::int8_t", "int8_t（有符号 8 位）", "signed char", 1, FieldValueKind::SignedInteger, 8},
-    {"std::uint8_t", "uint8_t（无符号 8 位）", "unsigned char", 1, FieldValueKind::UnsignedInteger, 8},
-    {"std::int16_t", "int16_t（有符号 16 位）", "short", 2, FieldValueKind::SignedInteger, 16},
-    {"std::uint16_t", "uint16_t（无符号 16 位）", "unsigned short", 2, FieldValueKind::UnsignedInteger, 16},
-    {"std::int32_t", "int32_t（有符号 32 位）", "int", 4, FieldValueKind::SignedInteger, 32},
-    {"std::uint32_t", "uint32_t（无符号 32 位）", "unsigned int", 4, FieldValueKind::UnsignedInteger, 32},
-    {"std::int64_t", "int64_t（有符号 64 位）", "long long", 8, FieldValueKind::SignedInteger, 64},
-    {"std::uint64_t", "uint64_t（无符号 64 位）", "unsigned long long", 8, FieldValueKind::UnsignedInteger, 64},
+    {"int8_t", "int8_t（有符号 8 位）", "signed char", 1, FieldValueKind::SignedInteger, 8},
+    {"uint8_t", "uint8_t（无符号 8 位）", "unsigned char", 1, FieldValueKind::UnsignedInteger, 8},
+    {"int16_t", "int16_t（有符号 16 位）", "short", 2, FieldValueKind::SignedInteger, 16},
+    {"uint16_t", "uint16_t（无符号 16 位）", "unsigned short", 2, FieldValueKind::UnsignedInteger, 16},
+    {"int32_t", "int32_t（有符号 32 位）", "int", 4, FieldValueKind::SignedInteger, 32},
+    {"uint32_t", "uint32_t（无符号 32 位）", "unsigned int", 4, FieldValueKind::UnsignedInteger, 32},
+    {"int64_t", "int64_t（有符号 64 位）", "long long", 8, FieldValueKind::SignedInteger, 64},
+    {"uint64_t", "uint64_t（无符号 64 位）", "unsigned long long", 8, FieldValueKind::UnsignedInteger, 64},
     {"bool", "bool（布尔）", "bool", 1, FieldValueKind::Boolean, 8},
     {"float", "float（单精度）", "float", 4, FieldValueKind::Float, 0},
     {"double", "double（双精度）", "double", 8, FieldValueKind::Double, 0}
