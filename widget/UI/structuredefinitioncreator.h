@@ -6,9 +6,11 @@
 
 class QLabel;
 class QComboBox;
-class QTableWidget;
+class QTreeWidget;
+class QTreeWidgetItem;
 class QLineEdit;
 class QPushButton;
+struct FieldInfo;
 struct StructInfo;
 
 class StructureDefinitionCreatorDialog : public QDialog
@@ -25,7 +27,13 @@ signals:
 
 private:
     void addField();
-    void appendFieldRow(const QString &name, const QString &typeName);
+    void addNestedField();
+    QTreeWidgetItem *appendScalarField(QTreeWidgetItem *parent, const QString &name,
+                                       const QString &typeName);
+    QTreeWidgetItem *appendRecordField(QTreeWidgetItem *parent, const QString &name,
+                                       const QString &typeName);
+    void appendExistingField(QTreeWidgetItem *parent, const FieldInfo &field);
+    QTreeWidgetItem *currentContainer() const;
     void removeField();
     void moveField(int direction);
     void updatePreview();
@@ -38,7 +46,7 @@ private:
     QString m_originalFingerprint;
     QLineEdit *m_structName = nullptr;
     QComboBox *m_packAlignment = nullptr;
-    QTableWidget *m_fields = nullptr;
+    QTreeWidget *m_fields = nullptr;
     QLabel *m_summary = nullptr;
     QLabel *m_status = nullptr;
     QPushButton *m_saveButton = nullptr;
