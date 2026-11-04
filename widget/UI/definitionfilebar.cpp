@@ -20,10 +20,15 @@ DefinitionFileBar::DefinitionFileBar(const QString &filePath, QWidget *parent) :
     openButton->setObjectName(QStringLiteral("openDefinitionButton"));
     auto *createButton = new QPushButton(QStringLiteral("新建结构定义"), this);
     createButton->setObjectName(QStringLiteral("createDefinitionButton"));
+    m_editButton = new QPushButton(QStringLiteral("修改结构定义"), this);
+    m_editButton->setObjectName(QStringLiteral("editDefinitionButton"));
+    m_editButton->setToolTip(QStringLiteral("修改当前加载的结构定义 JSON。"));
+    m_editButton->setEnabled(false);
     auto *reloadButton = new QPushButton(QStringLiteral("重新加载"), this);
     reloadButton->setObjectName(QStringLiteral("reloadDefinitionButton"));
     row->addWidget(openButton);
     row->addWidget(createButton);
+    row->addWidget(m_editButton);
     row->addWidget(reloadButton);
     m_exportButton = new QPushButton(QStringLiteral("导出结构定义 JSON"), this);
     m_exportButton->setObjectName(QStringLiteral("exportDefinitionButton"));
@@ -32,6 +37,7 @@ DefinitionFileBar::DefinitionFileBar(const QString &filePath, QWidget *parent) :
     row->addWidget(m_exportButton);
     connect(m_exportButton, &QPushButton::clicked, this, &DefinitionFileBar::exportRequested);
     connect(createButton, &QPushButton::clicked, this, &DefinitionFileBar::createRequested);
+    connect(m_editButton, &QPushButton::clicked, this, &DefinitionFileBar::editRequested);
     connect(reloadButton, &QPushButton::clicked, this, [this] { emit loadRequested(m_filePath->text()); });
     connect(m_filePath, &QLineEdit::returnPressed, this, [this] { emit loadRequested(m_filePath->text()); });
     connect(openButton, &QPushButton::clicked, this, [this] {
@@ -48,4 +54,14 @@ DefinitionFileBar::DefinitionFileBar(const QString &filePath, QWidget *parent) :
 void DefinitionFileBar::setExportEnabled(bool enabled)
 {
     m_exportButton->setEnabled(enabled);
+}
+
+void DefinitionFileBar::setEditEnabled(bool enabled)
+{
+    m_editButton->setEnabled(enabled);
+}
+
+void DefinitionFileBar::setLoadedPath(const QString &filePath)
+{
+    m_filePath->setText(QDir::toNativeSeparators(filePath));
 }

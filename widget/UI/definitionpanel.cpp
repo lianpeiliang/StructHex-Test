@@ -23,6 +23,7 @@ DefinitionPanel::DefinitionPanel(const QString &filePath, QWidget *parent) : QFr
 
     connect(m_fileBar, &DefinitionFileBar::loadRequested, this, &DefinitionPanel::loadRequested);
     connect(m_fileBar, &DefinitionFileBar::createRequested, this, &DefinitionPanel::createRequested);
+    connect(m_fileBar, &DefinitionFileBar::editRequested, this, &DefinitionPanel::editRequested);
     connect(m_fileBar, &DefinitionFileBar::exportRequested, this, &DefinitionPanel::exportRequested);
     connect(m_selector, &StructureSelectorBar::structureSelected, this, &DefinitionPanel::structureSelected);
     connect(m_selector, &StructureSelectorBar::expandRequested, this, &DefinitionPanel::expandRequested);
@@ -37,8 +38,14 @@ void DefinitionPanel::setDefinitions(const QStringList &names, int selectedIndex
 void DefinitionPanel::setSourceState(bool jsonMode, bool loaded)
 {
     m_fileBar->setExportEnabled(loaded);
+    m_fileBar->setEditEnabled(jsonMode && loaded);
     m_sourceInfo->setText((jsonMode ? QStringLiteral("来源：结构定义 JSON")
                                     : QStringLiteral("来源：头文件解析    |    发现 %1 个结构体").arg(m_selector->count()))
                          + (loaded ? QStringLiteral("    |    目标：Windows x64 / MinGW，小端序")
                                            : QStringLiteral("    |    加载失败")));
+}
+
+void DefinitionPanel::setLoadedPath(const QString &filePath)
+{
+    m_fileBar->setLoadedPath(filePath);
 }

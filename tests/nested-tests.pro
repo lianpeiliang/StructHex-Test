@@ -21,3 +21,5 @@ SOURCES += $$TEST_ROOT/widget/UI/definitionpanel.cpp
 HEADERS += $$TEST_ROOT/widget/UI/definitionpanel.h
 SOURCES += $$TEST_ROOT/widget/UI/definitionfilebar.cpp $$TEST_ROOT/widget/UI/structureselectorbar.cpp
 HEADERS += $$TEST_ROOT/widget/UI/definitionfilebar.h $$TEST_ROOT/widget/UI/structureselectorbar.h
+SOURCES += $$TEST_ROOT/widget/UI/structuredefinitioncreator.cpp
+HEADERS += $$TEST_ROOT/widget/UI/structuredefinitioncreator.h

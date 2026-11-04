@@ -16,6 +16,7 @@
 #include <QFont>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QShortcut>
@@ -209,6 +210,19 @@ MainWindow::MainWindow(const QString &filePath, QWidget *parent)
                 this, &MainWindow::reloadDefinition);
         dialog.exec();
     });
+    connect(m_definitionPanel, &DefinitionPanel::editRequested, this, [this] {
+        if (!m_session.isJson() || !m_session.hasStructure())
+            return;
+        QString reason;
+        if (!StructureDefinitionCreatorDialog::supportsEditing(m_session.structure(), reason)) {
+            QMessageBox::information(this, QStringLiteral("无法修改结构定义"), reason);
+            return;
+        }
+        StructureDefinitionCreatorDialog dialog(m_session.structure(), m_session.loadedPath(), this);
+        connect(&dialog, &StructureDefinitionCreatorDialog::definitionSaved,
+                this, &MainWindow::reloadDefinition);
+        dialog.exec();
+    });
     connect(m_definitionPanel, &DefinitionPanel::loadRequested, this, &MainWindow::reloadDefinition);
     connect(m_definitionPanel, &DefinitionPanel::exportRequested, this, &MainWindow::exportDefinitionJson);
     connect(m_definitionPanel, &DefinitionPanel::structureSelected, this, [this](int index) {
@@ -256,6 +270,7 @@ MainWindow::MainWindow(const QString &filePath, QWidget *parent)
 void MainWindow::reloadDefinition(const QString &filePath)
 {
     m_session.load(filePath);
+    m_definitionPanel->setLoadedPath(filePath);
     m_definitionPanel->setDefinitions(m_session.structureNames(), m_session.selectedIndex(), m_session.isJson());
     showSelectedStructure();
 }

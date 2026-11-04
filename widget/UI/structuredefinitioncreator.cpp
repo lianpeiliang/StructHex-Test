@@ -49,8 +49,21 @@ const TypeSpec typeSpecs[] = {
 
 const TypeSpec *typeSpec(const QString &name)
 {
+    const QString normalized = name.startsWith(QLatin1String("std::")) ? name.mid(5) : name;
     for (const TypeSpec &spec : typeSpecs) {
-        if (name == QLatin1String(spec.name))
+        if (normalized == QLatin1String(spec.name))
+            return &spec;
+    }
+    return nullptr;
+}
+
+const TypeSpec *typeSpec(const FieldInfo &field)
+{
+    const TypeSpec *named = typeSpec(field.typeName);
+    if (named && named->kind == field.valueKind && named->size == field.size)
+        return named;
+    for (const TypeSpec &spec : typeSpecs) {
+        if (spec.kind == field.valueKind && spec.size == field.size)
             return &spec;
     }
     return nullptr;
@@ -177,11 +190,15 @@ StructureDefinitionCreatorDialog::StructureDefinitionCreatorDialog(QWidget *pare
     auto *buttons = new QHBoxLayout;
     buttons->addStretch();
     auto *cancelButton = new QPushButton(QStringLiteral("取消"), this);
-    auto *saveButton = new QPushButton(QStringLiteral("生成并保存 JSON"), this);
-    saveButton->setObjectName(QStringLiteral("saveNewDefinitionButton"));
-    saveButton->setDefault(true);
+    m_saveButton = new QPushButton(QStringLiteral("生成并保存 JSON"), this);
+    m_saveButton->setObjectName(QStringLiteral("saveNewDefinitionButton"));
+    m_saveButton->setDefault(true);
+    m_saveAsButton = new QPushButton(QStringLiteral("另存为…"), this);
+    m_saveAsButton->setObjectName(QStringLiteral("saveDefinitionAsButton"));
+    m_saveAsButton->hide();
     buttons->addWidget(cancelButton);
-    buttons->addWidget(saveButton);
+    buttons->addWidget(m_saveAsButton);
+    buttons->addWidget(m_saveButton);
     root->addLayout(buttons);
 
     connect(addButton, &QPushButton::clicked, this, &StructureDefinitionCreatorDialog::addField);
@@ -193,31 +210,91 @@ StructureDefinitionCreatorDialog::StructureDefinitionCreatorDialog(QWidget *pare
             this, &StructureDefinitionCreatorDialog::updatePreview);
     connect(m_fields, &QTableWidget::itemChanged, this, [this] { updatePreview(); });
     connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
-    connect(saveButton, &QPushButton::clicked, this, &StructureDefinitionCreatorDialog::saveDefinition);
+    connect(m_saveButton, &QPushButton::clicked, this, &StructureDefinitionCreatorDialog::saveDefinition);
+    connect(m_saveAsButton, &QPushButton::clicked, this, &StructureDefinitionCreatorDialog::saveDefinitionAs);
     addField();
+}
+
+StructureDefinitionCreatorDialog::StructureDefinitionCreatorDialog(
+    const StructInfo &structure, const QString &filePath, QWidget *parent)
+    : StructureDefinitionCreatorDialog(parent)
+{
+    setWindowTitle(QStringLiteral("修改结构定义 · %1").arg(structure.name));
+    m_currentPath = QFileInfo(filePath).absoluteFilePath();
+    m_originalFingerprint = structureDefinitionFingerprint(structure);
+    m_saveButton->setText(QStringLiteral("保存"));
+    m_saveAsButton->show();
+    {
+        const QSignalBlocker nameBlocker(m_structName);
+        m_structName->setText(structure.name);
+    }
+    {
+        const QSignalBlocker tableBlocker(m_fields);
+        m_fields->setRowCount(0);
+        for (const FieldInfo &field : structure.fields) {
+            const TypeSpec *spec = typeSpec(field);
+            appendFieldRow(field.name, spec ? QString::fromLatin1(spec->name) : field.typeName);
+        }
+    }
+    if (structure.packAlignment == 0) {
+        m_packAlignment->insertItem(0, QStringLiteral("请选择（原 JSON 未记录）"), 0);
+        m_packAlignment->setCurrentIndex(0);
+    } else {
+        m_packAlignment->setCurrentIndex(m_packAlignment->findData(structure.packAlignment));
+    }
+    updatePreview();
+}
+
+bool StructureDefinitionCreatorDialog::supportsEditing(const StructInfo &structure, QString &reason)
+{
+    if (!isIdentifier(structure.name) || structure.fields.isEmpty()
+        || !structure.binaryEncodingIssue.isEmpty()) {
+        reason = QStringLiteral("当前结构定义包含此编辑器尚不支持的结构体名称或布局。");
+        return false;
+    }
+    for (const FieldInfo &field : structure.fields) {
+        const TypeSpec *spec = typeSpec(field);
+        if (!isIdentifier(field.name) || !spec || field.isArray || field.isBitField
+            || !field.children.isEmpty() || !field.binaryEncodingIssue.isEmpty()
+            || field.valueKind != spec->kind || field.size != spec->size
+            || field.alignment != spec->size) {
+            reason = QStringLiteral("字段“%1”包含当前编辑器尚不支持的类型、数组、位域或嵌套结构。")
+                         .arg(field.name);
+            return false;
+        }
+    }
+    reason.clear();
+    return true;
 }
 
 void StructureDefinitionCreatorDialog::addField()
 {
+    appendFieldRow(QString(), QStringLiteral("int8_t"));
+    const int row = m_fields->rowCount() - 1;
+    m_fields->setCurrentCell(row, 0);
+    updatePreview();
+    m_fields->editItem(m_fields->item(row, 0));
+}
+
+void StructureDefinitionCreatorDialog::appendFieldRow(const QString &fieldName,
+                                                       const QString &typeName)
+{
     const int row = m_fields->rowCount();
-    QTableWidgetItem *name = nullptr;
     {
         const QSignalBlocker blocker(m_fields);
         m_fields->insertRow(row);
-        name = new QTableWidgetItem;
-        m_fields->setItem(row, 0, name);
+        m_fields->setItem(row, 0, new QTableWidgetItem(fieldName));
         auto *type = new QComboBox(m_fields);
         for (const TypeSpec &spec : typeSpecs)
             type->addItem(QString::fromUtf8(spec.label), QString::fromLatin1(spec.name));
+        type->setCurrentIndex(type->findData(typeSpec(typeName)
+            ? QString::fromLatin1(typeSpec(typeName)->name) : QStringLiteral("int8_t")));
         m_fields->setCellWidget(row, 1, type);
         m_fields->setItem(row, 2, readOnlyItem(QStringLiteral("—")));
         m_fields->setItem(row, 3, readOnlyItem(QStringLiteral("—")));
         connect(type, QOverload<int>::of(&QComboBox::currentIndexChanged),
                 this, &StructureDefinitionCreatorDialog::updatePreview);
     }
-    m_fields->setCurrentCell(row, 0);
-    updatePreview();
-    m_fields->editItem(name);
 }
 
 void StructureDefinitionCreatorDialog::removeField()
@@ -266,6 +343,10 @@ bool StructureDefinitionCreatorDialog::buildStructure(StructInfo &structure, QSt
     structure = StructInfo();
     structure.name = name;
     const qint64 pack = m_packAlignment->currentData().toLongLong();
+    if (pack != 1 && pack != 2 && pack != 4 && pack != 8) {
+        error = QStringLiteral("请选择最大成员对齐（pack）。");
+        return false;
+    }
     structure.packAlignment = int(pack);
     qint64 cursor = 0;
     QSet<QString> fieldNames;
@@ -337,7 +418,10 @@ void StructureDefinitionCreatorDialog::updatePreview()
     }
     m_summary->setText(QStringLiteral("布局预览：%1 字节    |    结构体对齐：%2 字节")
                        .arg(structure.size).arg(structure.alignment));
-    m_status->setText(QStringLiteral("布局有效。字段按最大成员对齐规则自动计算偏移和填充。"));
+    m_status->setText(m_originalFingerprint.isEmpty()
+        || structureDefinitionFingerprint(structure) == m_originalFingerprint
+        ? QStringLiteral("布局有效。字段按最大成员对齐规则自动计算偏移和填充。")
+        : QStringLiteral("布局有效，但保存后会改变原结构布局；配套业务配置可能需要更新。"));
     m_status->setProperty("invalid", false);
     m_status->style()->unpolish(m_status);
     m_status->style()->polish(m_status);
@@ -345,22 +429,45 @@ void StructureDefinitionCreatorDialog::updatePreview()
 
 void StructureDefinitionCreatorDialog::saveDefinition()
 {
+    if (m_currentPath.isEmpty()) {
+        saveDefinitionAs();
+        return;
+    }
+    saveToPath(m_currentPath);
+}
+
+void StructureDefinitionCreatorDialog::saveDefinitionAs()
+{
     StructInfo structure;
     QString error;
     if (!buildStructure(structure, error)) {
         m_status->setText(error);
         return;
     }
-    QString suggested = structure.name;
-    for (const QChar invalid : QStringLiteral("\\/:*?\"<>|"))
-        suggested.replace(invalid, QLatin1Char('_'));
-    suggested += QStringLiteral(".json");
+    QString suggested = m_currentPath;
+    if (suggested.isEmpty()) {
+        suggested = structure.name;
+        for (const QChar invalid : QStringLiteral("\\/:*?\"<>|"))
+            suggested.replace(invalid, QLatin1Char('_'));
+        suggested += QStringLiteral(".json");
+    }
     QString path = QFileDialog::getSaveFileName(this, QStringLiteral("保存结构定义 JSON"), suggested,
                                                 QStringLiteral("结构定义 JSON (*.json);;所有文件 (*)"));
     if (path.isEmpty())
         return;
     if (QFileInfo(path).suffix().isEmpty())
         path += QStringLiteral(".json");
+    saveToPath(path);
+}
+
+void StructureDefinitionCreatorDialog::saveToPath(const QString &path)
+{
+    StructInfo structure;
+    QString error;
+    if (!buildStructure(structure, error)) {
+        m_status->setText(error);
+        return;
+    }
     if (!saveStructureDefinitionJson(structure, path, &error)) {
         m_status->setText(QStringLiteral("保存失败：%1").arg(error));
         return;
