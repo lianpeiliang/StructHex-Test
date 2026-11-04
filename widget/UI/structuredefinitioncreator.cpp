@@ -44,7 +44,8 @@ const TypeSpec typeSpecs[] = {
     {"uint64_t", "uint64_t（无符号 64 位）", "unsigned long long", 8, FieldValueKind::UnsignedInteger, 64},
     {"bool", "bool（布尔）", "bool", 1, FieldValueKind::Boolean, 8},
     {"float", "float（单精度）", "float", 4, FieldValueKind::Float, 0},
-    {"double", "double（双精度）", "double", 8, FieldValueKind::Double, 0}
+    {"double", "double（双精度）", "double", 8, FieldValueKind::Double, 0},
+    {"long double", "long double（扩展精度）", "long double", 16, FieldValueKind::LongDouble, 0}
 };
 
 const TypeSpec *typeSpec(const QString &name)

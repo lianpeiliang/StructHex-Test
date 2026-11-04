@@ -222,7 +222,7 @@ libclang 的查询结果先复制到 `StructInfo` 和 `FieldInfo`，再交给窗
 
 通过“新建结构定义”创建的文件还会保存可选的 `packAlignment`（1、2、4 或 8），记录界面选择的 `#pragma pack` 上限，供后续编辑时还原。头文件解析结果没有独立的 pack 设置可供读取，因此从头文件导出的 JSON 不包含此字段；旧 JSON 仍可加载。`packAlignment` 不参与业务配置的结构布局指纹。
 
-加载结构定义 JSON 后可点击 **修改结构定义**，在新建界面中回填结构体名称、基础标量字段及 pack 设置，调整后选择 **保存** 或 **另存为**。旧 JSON 若没有 `packAlignment`，编辑前须手动选择 pack；保存后的 JSON 会记录该选择。当前编辑器只支持基础标量字段，遇到嵌套结构、数组和位域会提示暂不支持。修改字段布局后，配套业务配置可能需要重新保存。
+加载结构定义 JSON 后可点击 **修改结构定义**，在新建界面中回填结构体名称、基础标量字段及 pack 设置，调整后选择 **保存** 或 **另存为**。旧 JSON 若没有 `packAlignment`，编辑前须手动选择 pack；保存后的 JSON 会记录该选择。当前编辑器支持整数、布尔值和浮点标量（包括目标平台上的 16 字节 `long double`），遇到嵌套结构、数组和位域会提示暂不支持。修改字段布局后，配套业务配置可能需要重新保存。
 
 字段保存 `name`、`type`、`canonicalType`、`kind`、`size`、`alignment`、`offsetBits`、`absoluteOffsetBits`、`isArray`、`isBitField`、`editable` 和递归的 `fields`。整数附带 `integerBits`，位域附带 `bitWidth`；必要时附带只读原因和二进制编码限制。`size`、`alignment` 单位为字节，偏移单位为 bit：`offsetBits` 相对直接所属结构体，`absoluteOffsetBits` 相对最外层结构体。
 
