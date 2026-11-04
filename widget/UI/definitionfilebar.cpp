@@ -18,9 +18,12 @@ DefinitionFileBar::DefinitionFileBar(const QString &filePath, QWidget *parent) :
     row->addWidget(m_filePath, 1);
     auto *openButton = new QPushButton(QStringLiteral("打开结构定义"), this);
     openButton->setObjectName(QStringLiteral("openDefinitionButton"));
+    auto *createButton = new QPushButton(QStringLiteral("新建结构定义"), this);
+    createButton->setObjectName(QStringLiteral("createDefinitionButton"));
     auto *reloadButton = new QPushButton(QStringLiteral("重新加载"), this);
     reloadButton->setObjectName(QStringLiteral("reloadDefinitionButton"));
     row->addWidget(openButton);
+    row->addWidget(createButton);
     row->addWidget(reloadButton);
     m_exportButton = new QPushButton(QStringLiteral("导出结构定义 JSON"), this);
     m_exportButton->setObjectName(QStringLiteral("exportDefinitionButton"));
@@ -28,6 +31,7 @@ DefinitionFileBar::DefinitionFileBar(const QString &filePath, QWidget *parent) :
     m_exportButton->setEnabled(false);
     row->addWidget(m_exportButton);
     connect(m_exportButton, &QPushButton::clicked, this, &DefinitionFileBar::exportRequested);
+    connect(createButton, &QPushButton::clicked, this, &DefinitionFileBar::createRequested);
     connect(reloadButton, &QPushButton::clicked, this, [this] { emit loadRequested(m_filePath->text()); });
     connect(m_filePath, &QLineEdit::returnPressed, this, [this] { emit loadRequested(m_filePath->text()); });
     connect(openButton, &QPushButton::clicked, this, [this] {

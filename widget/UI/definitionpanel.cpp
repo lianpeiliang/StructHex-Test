@@ -22,6 +22,7 @@ DefinitionPanel::DefinitionPanel(const QString &filePath, QWidget *parent) : QFr
     definitionLayout->addWidget(m_selector);
 
     connect(m_fileBar, &DefinitionFileBar::loadRequested, this, &DefinitionPanel::loadRequested);
+    connect(m_fileBar, &DefinitionFileBar::createRequested, this, &DefinitionPanel::createRequested);
     connect(m_fileBar, &DefinitionFileBar::exportRequested, this, &DefinitionPanel::exportRequested);
     connect(m_selector, &StructureSelectorBar::structureSelected, this, &DefinitionPanel::structureSelected);
     connect(m_selector, &StructureSelectorBar::expandRequested, this, &DefinitionPanel::expandRequested);

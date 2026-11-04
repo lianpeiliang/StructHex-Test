@@ -69,12 +69,8 @@ WorkflowLauncher::WorkflowLauncher(const QString &defaultStructurePath, QWidget 
 
 void WorkflowLauncher::openStructureWorkspace()
 {
-    const QString path = QFileDialog::getOpenFileName(this, QStringLiteral("打开结构定义"),
-        m_defaultStructurePath,
-        QStringLiteral("头文件或结构定义 JSON (*.h *.hpp *.hh *.hxx *.json);;所有文件 (*)"));
-    if (path.isEmpty())
-        return;
-    auto *window = new MainWindow(path);
+    // 先打开工作区默认定义，用户可以直接新建，也可以在窗口内切换到其他文件。
+    auto *window = new MainWindow(m_defaultStructurePath);
     window->setAttribute(Qt::WA_DeleteOnClose);
     window->show();
 }

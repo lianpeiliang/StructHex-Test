@@ -15,6 +15,7 @@ public:
     void setExportEnabled(bool enabled); // 有可用定义时允许导出，与字段值是否合法无关。
 
 signals:
+    void createRequested(); // 从界面新建结构定义。
     void loadRequested(const QString &filePath); // 只表达用户意图，不校验或解析文件。
     void exportRequested(); // 请求导出当前已加载定义，不读取正在编辑的路径。
 

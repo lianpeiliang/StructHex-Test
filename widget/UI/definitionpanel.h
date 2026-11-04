@@ -20,6 +20,7 @@ public:
     void setSourceState(bool jsonMode, bool loaded); // 刷新来源类型、候选数和加载状态提示。
 
 signals:
+    void createRequested(); // 请求打开结构定义创建界面。
     void loadRequested(const QString &filePath); // 打开、回车或重新加载；路径可尚未校验。
     void exportRequested(); // 导出当前定义，由主窗口协调保存。
     void structureSelected(int index); // 用户切换候选；只传递索引，不直接修改会话。

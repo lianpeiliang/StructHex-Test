@@ -58,6 +58,15 @@ QLabel#operationStatus {
     border-radius: 9px;
     padding: 9px 12px;
 }
+QLabel#newDefinitionSummary {
+    color: #684A87;
+    background-color: #EEE6F7;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-weight: 600;
+}
+QLabel#newDefinitionStatus { color: #71538D; }
+QLabel#newDefinitionStatus[invalid="true"] { color: #B0445D; }
 QLabel#hexExportStatus, QLabel#hexImportStatus, QLabel#hexDecodeStatus { color: #795393; }
 QLabel#dialogSummary {
     background: white;

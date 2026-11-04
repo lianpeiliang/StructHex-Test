@@ -3,6 +3,7 @@
 #include "helpdialog.h"
 #include "fieldeditor.h"
 #include "definitionpanel.h"
+#include "structuredefinitioncreator.h"
 #include "headerparser.h"
 #include "binaryencoder.h"
 #include "binarydecoder.h"
@@ -202,6 +203,12 @@ MainWindow::MainWindow(const QString &filePath, QWidget *parent)
 
     m_definitionPanel = new DefinitionPanel(filePath, this);
     layout->addWidget(m_definitionPanel);
+    connect(m_definitionPanel, &DefinitionPanel::createRequested, this, [this] {
+        StructureDefinitionCreatorDialog dialog(this);
+        connect(&dialog, &StructureDefinitionCreatorDialog::definitionSaved,
+                this, &MainWindow::reloadDefinition);
+        dialog.exec();
+    });
     connect(m_definitionPanel, &DefinitionPanel::loadRequested, this, &MainWindow::reloadDefinition);
     connect(m_definitionPanel, &DefinitionPanel::exportRequested, this, &MainWindow::exportDefinitionJson);
     connect(m_definitionPanel, &DefinitionPanel::structureSelected, this, [this](int index) {
